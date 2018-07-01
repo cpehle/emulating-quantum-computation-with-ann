@@ -37,8 +37,7 @@ def complex_projective_spherical(n,m,sphere = sphere_rejection):
   z = x + 1.0j*y
   return z
 
-# Functions specific to the bloch sphere, need to be generalized later
-
+# Functions specific to the bloch sphere
 def random_angles_np(size):
   return 2*np.pi*np.random.rand(size)
 
