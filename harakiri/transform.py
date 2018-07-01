@@ -1,9 +1,11 @@
 import numpy as np
 
-def real_of_complex(y):
+def real_of_complex(z):
   """
+  Convert a n-dimensional complex vector into a 2n-dimensional
+  real vector.
   """
-  return np.vstack((np.real(y[:,0]),np.imag(y[:,0]),np.real(y[:,1]),np.imag(y[:,1]))).T
+  return np.vstack((np.real(z[:,0]),np.imag(z[:,0]),np.real(z[:,1]),np.imag(z[:,1]))).T
 
 def complex_of_real_transposed(y):
   """
@@ -17,7 +19,8 @@ def complex_of_real(y):
 
 def cartesian_of_projective(z):
   """
-
+  Computes the cartesian coordinates for projective coordinates
+  [z_0 : z_1] in CP^1.
   """
   alpha = z[0,:]
   beta = z[1,:]
@@ -29,16 +32,21 @@ def cartesian_of_projective(z):
 
 def theta_of_complex(z):
   """
+  Computes the angle theta on the Bloch sphere.
   """
   return 2*np.arcsin(np.sqrt(np.real((z * np.conj(z)))))
 
 def phi_of_complex(z):
   """
+  Computes the angle phi on the bloch sphere.
   """
   theta = theta_of_complex(z)
   return np.arccos(np.real(z/np.sin(theta/2.0)))
 
 def theta_phi_of_complex(z):
   """
+  Computes both theta and phi on the Bloch sphere given
+  a tensor of shape (2,n) and returns the as a tensor of 
+  shape (2,n)
   """
   return np.stack([theta_of_complex(z), phi_of_complex(z)], axis=1)

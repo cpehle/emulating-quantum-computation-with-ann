@@ -36,3 +36,18 @@ def complex_projective_spherical(n,m,sphere = sphere_rejection):
   y = p[:,(n+1):(2*n+1)]
   z = x + 1.0j*y
   return z
+
+# Functions specific to the bloch sphere, need to be generalized later
+
+def random_angles_np(size):
+  return 2*np.pi*np.random.rand(size)
+
+def random_angles_within(low, high, size):
+  return (np.random.rand(size) / (high - low)) + low
+
+def random_theta_phi(size):
+  return np.stack([random_angles_np(size), random_angles_np(size)], axis=1)
+
+def theta_phi_within(size, phi_low, phi_high, theta_low, theta_high):
+  return np.stack([random_angles_within(theta_low, theta_high, size), 
+                   random_angles_within(phi_low, phi_high, size)], axis=1)
