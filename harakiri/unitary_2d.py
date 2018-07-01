@@ -4,6 +4,8 @@ from . import quantum as qm
 from . import transform as tfm
 from . import random as rnd
 
+from .layers.quantized import quantized_layers as qnt
+
 import keras
 from keras.layers.core import Dense, Activation, Dropout
 from keras.models import Sequential
@@ -67,6 +69,32 @@ def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
   for unit in units:
     model.add(Dense(
       units=unit,
+      use_bias=True,
+      activation=activation
+    ))
+  model.compile(
+    loss="mse", 
+    optimizer=optimizer,
+    metrics=['accuracy']
+  )
+  return model
+
+def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optimizer='rmsprop'):
+  """
+  Build a multi-layer non-linear regression model using 
+  mean squared error as a loss function.
+
+  Args:
+    units: List of dimensions of the units to be used
+    num_bits: Number of bits the weights are supposed to be quantized to.
+    activation: activation function to be used
+    optimizer: optimizer to be used
+  """
+  model = Sequential()
+  for unit in units:
+    model.add(qnt.QuantizedDense(
+      units=unit,
+      nb=num_bits,
       use_bias=True,
       activation=activation
     ))
