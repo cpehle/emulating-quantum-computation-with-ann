@@ -6,7 +6,7 @@ from keras.layers import InputSpec, Layer, Dense, Conv2D
 from keras import constraints
 from keras import initializers
 
-from quantized_ops import quantize, clip_through
+from .quantized_ops import quantize, clip_through
 
 class Clip(constraints.Constraint):
     def __init__(self, min_value, max_value=None):
