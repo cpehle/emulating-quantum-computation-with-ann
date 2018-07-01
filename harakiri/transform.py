@@ -4,8 +4,17 @@ def real_of_complex(z):
   """
   Convert a n-dimensional complex vector into a 2n-dimensional
   real vector.
+
+  Args:
+    z: numpy float tensor of shape (n,2)
   """
   return np.vstack((np.real(z[:,0]),np.imag(z[:,0]),np.real(z[:,1]),np.imag(z[:,1]))).T
+
+def real_of_complex_test():
+  z = np.array([[1.0 + 1.0j, 2.0 + 2.0j]])
+  x_ = np.array([[1.0, 1.0, 2.0, 2.0]])
+  x = real_of_complex(z)
+  np.testing.assert_array_almost_equal(x, x_)
 
 def complex_of_real_transposed(y):
   """

@@ -2,7 +2,10 @@ import numpy as np
 
 def unitary_haar_measure(n):
   """
-  A random unitary matrix distributed with Haar measure
+  A random unitary matrix distributed with Haar measure.
+
+  Args:
+    n (int): Dimension of the unitary group U(n).
   """
   z = (np.random.randn(n,n) + 1j*np.random.randn(n,n))/np.sqrt(2.0)
   q,r = np.linalg.qr(z)
@@ -15,6 +18,10 @@ def sphere_rejection(n, m):
   """
   Generate m samples uniformly distributed on the n-Sphere
   using the rejection method.
+
+  Args:
+    n (int): Dimension of the sphere S^n.
+    m (int): Number of samples to be generated.
   """
   j = 0
   y = np.zeros((m,n))
@@ -30,6 +37,11 @@ def complex_projective_spherical(n,m,sphere = sphere_rejection):
   """
   Generate m random samples in complex projective space CP^n using 
   a sphere sampling method.
+
+  Args:
+    n (int): Complex dimension of the complex projective space CP^n.
+    m (int): Number of samples to be generated.
+    sphere: Sphere sampling method to be used.
   """
   p = sphere(2*n+1,m)
   x = p[:,0:n]

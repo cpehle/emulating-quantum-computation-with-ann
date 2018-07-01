@@ -12,6 +12,10 @@ def generate_data(unitary_transform, num_samples=1000):
   """
   Generate a set of training data for learning a given unitary
   transformation in U(2).
+
+  Args:
+    unitary_transform: Unitary transformation to be used.
+    num_samples: Number of samples to be generated.
   """
   initial_angles = rnd.theta_phi_within(
       num_samples, 
@@ -30,6 +34,10 @@ def build_linear_model(units, optimizer='rmsprop'):
   """
   Build a multi-layer linear regression model using 
   mean squared error as a loss function.
+
+  Args:
+    units: Dimensions of the units to be used.
+    optimizer: Optimizer to be used.
   """
   model = Sequential()
   for unit in units:
@@ -50,7 +58,7 @@ def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
   Build a multi-layer non-linear regression model using 
   mean squared error as a loss function.
 
-  # Arguments
+  Args:
     units: List of dimensions of the units to be used
     activation: activation function to be used
     optimizer: optimizer to be used
@@ -74,14 +82,15 @@ def train_model(
     epochs=3000, 
     num_samples=1000,
     batch_size=512,
-    model=build_linear_model(units=[4])
+    model=build_linear_model(units=[4]),
+    plot_losses=True
   ):
   """
   Train a model for a given constant unitary transformation. Per default
   we are attempting to fit a linear model with one layer to the given
   data.
 
-  # Arguments
+  Args:
     unitary_transform: Unitary transformation to be fit.
     epochs: Number of epochs to be trained.
     num_samples: Number of training samples to be generated.
@@ -91,15 +100,29 @@ def train_model(
   x,y = generate_data(unitary_transform, num_samples=num_samples)
 
   # define call backs for tensorboard visualization etc.
-  tensorboard_cb = keras.callbacks.TensorBoard(log_dir='logs/', histogram_freq = 100)
-  modelcheckpoint_cb = keras.callbacks.ModelCheckpoint(filepath='weights.{epoch:02d}-{val_loss:.2f}.hdf5', period=10)
-
-  model.fit(
+  callbacks = []
+  if False:
+    tensorboard_cb = keras.callbacks.TensorBoard(log_dir='logs/', histogram_freq=100)
+    modelcheckpoint_cb = keras.callbacks.ModelCheckpoint(filepath='checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5', period=100)
+    callbacks = [tensorboard_cb, modelcheckpoint_cb]
+  
+  history = model.fit(
     x=x,
     y=y,
     batch_size=batch_size,
     epochs=epochs,
     validation_split=0.05,
-    callbacks=[tensorboard_cb, modelcheckpoint_cb]
+    callbacks=callbacks
   )
-  return model
+
+  if plot_losses:
+    import matplotlib.pyplot as plt
+    training_loss = history.history['loss']
+    validation_loss = history.history['val_loss']
+    plt.plot(training_loss, label='training loss')
+    plt.plot(validation_loss, label='validation loss')
+    plt.yscale('log')
+    plt.legend()
+    plt.show()
+
+  return model, history
