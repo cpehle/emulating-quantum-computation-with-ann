@@ -68,5 +68,8 @@ def rotate(phi):
 def rho(psi):
   """
   Compute the density of state matrix.
+
+  Args:
+    psi (tensor of shape (2,n))
   """
   return np.dot(psi, psi.T)

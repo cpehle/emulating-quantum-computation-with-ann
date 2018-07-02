@@ -64,6 +64,18 @@ def theta_phi_within(size, phi_low, phi_high, theta_low, theta_high):
                    random_angles_within(phi_low, phi_high, size)], axis=1)
 
 def uniform_2d_spherical(m):
-   phi =  2 * np.pi * np.random.rand(m)
-   theta = np.arccos(1 - 2 * np.random.rand(m))
-   return phi,theta
+  phi =  2 * np.pi * np.random.rand(m)
+  theta = np.arccos(1 - 2 * np.random.rand(m))
+  return phi,theta
+
+def uniform_2d_spherical_within(
+    m, 
+    phi_min = 0.0, 
+    phi_max=2.0*np.pi, 
+    theta_min=0.0, 
+    theta_max=np.pi):
+  delta_phi = phi_max - phi_min
+  delta_theta = theta_max - theta_min
+  phi = delta_phi * np.random.rand(m) + phi_min
+  theta = (delta_theta/np.pi) * np.arccos(1 - 2 * np.random.rand(m)) + theta_min
+  return phi,theta
