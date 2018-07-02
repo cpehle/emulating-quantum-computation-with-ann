@@ -1,4 +1,5 @@
 import keras.backend as K
+import numpy as np
 
 def round_through(x):
   """Element-wise rounding to the closest integer with full gradient propagation.
@@ -14,6 +15,10 @@ def _hard_sigmoid(x):
   """
   x = (0.5 * x) + 0.5
   return K.clip(x, 0, 1)
+
+def binary_sigmoid_np(x):
+  x = (0.5 * x) + 0.5
+  return np.clip(x,0,1)
 
 def binary_sigmoid(x):
   """Binary hard sigmoid for training binarized neural network.
@@ -33,6 +38,10 @@ def binary_tanh(x):
   - [BinaryNet: Training Deep Neural Networks with Weights and Activations Constrained to +1 or -1, Courbariaux et al. 2016](http://arxiv.org/abs/1602.02830}
   """
   x = 2 * round_through(_hard_sigmoid(x)) - 1
+  return x
+
+def binary_tanh_np(x):
+  x = 2 * hard_sigmoid_np(x) - 1
   return x
 
 def binarize(W, H=1):
