@@ -19,14 +19,16 @@ def generate_data(unitary_transform, num_samples=1000):
     unitary_transform: Unitary transformation to be used.
     num_samples: Number of samples to be generated.
   """
-  initial_angles = rnd.theta_phi_within(
-      num_samples, 
-      phi_low=0.0, 
-      phi_high=0.1, 
-      theta_low=np.pi/2, 
-      theta_high=np.pi + 0.3
-  )
-  psi_initial = qm.psi(theta = initial_angles[:,0], phi = initial_angles[:,1])
+  #initial_angles = rnd.theta_phi_within(
+  #    num_samples, 
+  #    phi_low=0.0, 
+  #    phi_high=0.1, 
+  #    theta_low=np.pi/2, 
+  #    theta_high=np.pi + 0.3
+  #)
+  #psi_initial = qm.psi(theta = initial_angles[:,0], phi = initial_angles[:,1])
+  phi,theta = rnd.uniform_2d_spherical(m = num_samples)
+  psi_initial = qm.psi(theta = theta, phi = phi)
   psi_final = np.matmul(unitary_transform, psi_initial)
   x = tfm.real_of_complex(psi_initial.T)
   y = tfm.real_of_complex(psi_final.T)

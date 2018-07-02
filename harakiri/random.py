@@ -62,3 +62,8 @@ def random_theta_phi(size):
 def theta_phi_within(size, phi_low, phi_high, theta_low, theta_high):
   return np.stack([random_angles_within(theta_low, theta_high, size), 
                    random_angles_within(phi_low, phi_high, size)], axis=1)
+
+def uniform_2d_spherical(m):
+   phi =  2 * np.pi * np.random.rand(m)
+   theta = np.arccos(1 - 2 * np.random.rand(m))
+   return phi,theta
