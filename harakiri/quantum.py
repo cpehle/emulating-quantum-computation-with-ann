@@ -16,6 +16,7 @@ zero = np.array([[1.0 + 0.0j],
 one = np.array([[0.0 + 0.0j],
                 [1.0 + 0.0j]])
 
+# hadamard gate
 hadamard = 1.0/np.sqrt(2) * (sigma_1 + sigma_3)
 
 def psi(theta, phi):
@@ -23,8 +24,11 @@ def psi(theta, phi):
   Defines states on bloch sphere given by set of angles. 
 
   Args:
-    theta (float): Theta angle with the z-axis of the bloch sphere.
-    phi (float): Phi angle in  the xy-plane of the bloch sphere.
+    theta np.array(float): Theta angle with the z-axis of the bloch sphere.
+    phi np.array(float): Phi angle in  the xy-plane of the bloch sphere.
+
+  Returns: 
+    psi np.array(float)
   """
   return np.cos(theta/2) * zero + np.exp(1.0j*phi) * np.sin(theta/2) * one
 
@@ -34,9 +38,17 @@ def normalize_state(psi):
 
   Args:
     psi: State vectors to be normalized.
+  Returns:
+    Normalized state vector.
   """
   norm = np.sqrt(np.real(np.dot(psi.T, psi)))
   return psi/norm
+
+def norm(psi):
+  """
+  Compute the norm of the state `psi`.
+  """
+  return np.sqrt(np.real(np.dot(psi.T, psi)))
 
 def nkron(*args):
   """

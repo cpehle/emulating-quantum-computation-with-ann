@@ -64,6 +64,12 @@ def theta_phi_within(size, phi_low, phi_high, theta_low, theta_high):
                    random_angles_within(phi_low, phi_high, size)], axis=1)
 
 def uniform_2d_spherical(m):
+  """
+  Generate random uniform samples on a 2d-sphere.
+
+  Args:
+    m (int): Number of samples to generate.
+  """
   phi =  2 * np.pi * np.random.rand(m)
   theta = np.arccos(1 - 2 * np.random.rand(m))
   return phi,theta
@@ -74,6 +80,18 @@ def uniform_2d_spherical_within(
     phi_max=2.0*np.pi, 
     theta_min=0.0, 
     theta_max=np.pi):
+  """
+  Generate random uniform samples on a 2d-sphere within the 
+  specified spherical coordinates (phi_min, phi_max) and
+  (theta_min, theta_max).
+
+  Args:
+    m (int): Number of samples to generate
+    phi_min (float): Minimum angle to use
+    phi_max (float): Maximum angle to use
+    theta_min (float): Minimum angle to use
+    theta_max (float): Maximum angle to use
+  """
   delta_phi = phi_max - phi_min
   delta_theta = theta_max - theta_min
   phi = delta_phi * np.random.rand(m) + phi_min

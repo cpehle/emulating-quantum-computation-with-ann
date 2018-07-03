@@ -9,9 +9,12 @@ def sphere_points_2d():
   """ 
   Generate points on the sphere S^2 in an
   grid.
+
+  Returns:
+    x,y,z (tuple): cartesian coordinates of the points that were generated.
   """
   r = 1
-  phi, theta = np.mgrid[0.0:np.pi:100j, 0.0:2.0*np.pi:100j]
+  phi,theta = np.mgrid[0.0:np.pi:100j, 0.0:2.0*np.pi:100j]
   x = r * np.sin(phi) * np.cos(theta)
   y = r * np. sin(phi) * np.sin(theta)
   z = r * np.cos(phi)
