@@ -10,7 +10,7 @@ FIXED_RATE_NEURON = {'I_e': 0.,        # constant input
                      't_ref': 2.,      # refractory period
                      'V_reset': -80.,  # reset potential
                      'C_m': 320.,      # membrane capacitance
-                     'V_m': -70.}      # initial membrane potential
+                     'V_m': -70}       # initial membrane potential
 
 DLS2_NEURON = {'I_e': 0.,        # constant input
                'tau_m': 3.,      # membrane time constant
@@ -19,9 +19,9 @@ DLS2_NEURON = {'I_e': 0.,        # constant input
                't_ref': 1.5,     # refractory period
                'V_reset': 600.,  # reset potential
                'C_m': 2.36,      # membrane capacitance
-               'V_m': 800.}      # initial membrane potential
+               'V_m': 800}       # initial membrane potential
 
-class Spikes():
+class Spikes(object):
     def __init__(self):
         self.nr_spikes_total = 0
         self.nr_spikes_prev = 0
@@ -30,7 +30,9 @@ class Spikes():
                        'times': np.array([])}
 
 class Unit(object):
-    def __init__(self, unit_type = 'iaf_psc_alpha', dimension = 0, parameters = DLS2_NEURON):
+    """
+    """
+    def __init__(self,  dimension = 0, unit_type = 'iaf_psc_alpha', parameters = DLS2_NEURON):
         self.unit_type = unit_type
         self.dimension = dimension
         self.parameters = parameters
@@ -39,6 +41,7 @@ class Unit(object):
         self.output_connections = []
         self.spike_detector = None
         self.spikes = Spikes()
+        self._weights = None
 
     def get_spikes(self):
         self.spikes.nr_spikes_prev = self.spikes.nr_spikes_total
@@ -54,6 +57,16 @@ class Unit(object):
                   "times": self.spikes.spikes["times"][-nr_spikes_new:]}
         return spikes
 
+    def weights(self):
+        assert(len(self.input_connections) == 1)
+        return self._weights
+
+    def set_weights(self, weights):
+        assert(len(self.input_connections) == 1)
+        connection = self.input_connections[0]
+        nest.SetStatus(connection, {"weight": weights})
+        self._weights = weights
+
     def get_activity(self):
         senders = self.get_new_spikes()["senders"]
         activity = np.zeros(self.dimension)
@@ -61,10 +74,12 @@ class Unit(object):
             activity[idx] += len(np.where(np.array(senders)==neuron_id)[0])
         mean = np.mean(activity)
         if mean != 0.:
-            activity /= mean*2
+            activity /= mean
         return activity
 
-class Model:
+class Sequential(object):
+    """
+    """
     def __init__(self):
         self.units = []
         self.input_unit = None
@@ -83,10 +98,11 @@ class Model:
         for index, unit in enumerate(units):
             if (index < num_layers-1):
                 initial_weights = 1000*np.random.randn(units[index+1].dimension, unit.dimension)
-                nest.Connect(unit.node_ids, units[index+1].node_ids, 'all_to_all', {'weight': initial_weights})
+                nest.Connect(unit.node_ids, units[index+1].node_ids, 'all_to_all', {"weight":initial_weights})
                 connection = nest.GetConnections(source=unit.node_ids, target=units[index+1].node_ids)
                 unit.output_connections.append(connection)
                 units[index+1].input_connections.append(connection)
+                unit._weights = initial_weights
 
         # create fixed rate input neurons
         self.input_unit = Unit(
@@ -121,6 +137,10 @@ class Model:
     def get_activity_at_layer(self, layer_index):
         return self.units[layer_index].get_activity()
 
+    def get_activity_at_output(self):
+        last_layer_idx = len(self.units)-1
+        return self.units[last_layer_idx].get_activity()
+
     def get_weights_at_layer(self, layer_index):
         unit = self.units[layer_index]
         assert(len(unit.input_connections) == 1)
@@ -129,64 +149,59 @@ class Model:
         # See http://www.nest-simulator.org/py_sample/plot_weight_matrices/index.html
         # There got to be a better way...
         connection = unit.input_connections[0]
-        flattened_weights = nest.GetStatus(connection, keys='weight')
-
+        
         input_dimension = self.units[layer_index-1].dimension
         output_dimension = unit.dimension
-        weights = np.zeros(input_dimension, output_dimension)
+        return np.reshape(np.array(nest.GetStatus(connection, keys='weight')), (input_dimension,output_dimension))
 
-        for idx, n in enumerate(connection):
-            weights[n[0] - min(unit.node_ids), n[1] - min(unit.node_ids)] = flattened_weights[idx]
-
-        return weights
-
-    def set_weights_at_layer(self, layer_index, weight):
+    def set_weights_at_layer(self, layer_index, weights):
         """
         """
         unit = self.units[layer_index]
-
         assert(len(unit.input_connections) == 1)
         assert(layer_index >= 1)
+        previous_unit = self.units[layer_index-1]
 
-        connection = unit.input_connections[0]
-        nest.SetStatus(connection, {"weight": weight})
+        ## Ideally you want to be able to do something like this
+        ## but this is apparently not possible.
+        # connection = unit.input_connections[0]
+        # nest.SetStatus(connection, {"weight": weights})
 
-        ## This is an ULTRA HACK, there be a better
+        ## This is an ULTRA HACK, there does not seem to be a better
         ## way however (see above)
-        #for i, source in enumerate(previous_unit.node_ids):
-        #    for j, target in enumerate(unit.node_ids):
-        #        synapse = nest.GetConnections(
-        #            source=tuple((source,)),
-        #            target=tuple((target,))
-        #        )
-        #        nest.SetStatus(synapse, {"weight": weight[i,j]})
+        for i, source in enumerate(previous_unit.node_ids):
+            for j, target in enumerate(unit.node_ids):
+                synapse = nest.GetConnections(
+                    source=tuple((source,)),
+                    target=tuple((target,))
+                )
+                nest.SetStatus(synapse, {"weight": weights[i,j]})
 
     def set_stimulus(self, input):
         for i, n in enumerate(self.input_unit.node_ids):
             nest.SetStatus(tuple((n,)), {"I_e": 1000. * input[i]})
 
 if __name__ == '__main__':
-    m = Model()
-    m.add(Unit(
-        unit_type='iaf_psc_alpha',
-        dimension=4
-    ))
-    m.add(Unit(
-        unit_type='iaf_psc_alpha',
-        dimension=20
-    ))
-    m.add(Unit(
-        unit_type='iaf_psc_alpha',
-        dimension=4
-    ))
+    # example model
+    m = Sequential()
+    m.add(Unit(4))
+    m.add(Unit(20))
+    m.add(Unit(20))
+    m.add(Unit(4))
     m.build()
 
-    m.set_stimulus([1000.0,2000.0,3000.0,3000.0])
+    m.set_stimulus(1000.0 * np.ones(100))
     nest.Simulate(100)
-    
+
     print(m.get_activity_at_input())
     print(m.get_activity_at_layer(0))
     print(m.get_activity_at_layer(1))
     print(m.get_activity_at_layer(2))
+    print(m.get_activity_at_layer(3))
 
+    print(m.get_spikes_at_layer(0))
+    print(m.get_spikes_at_layer(1))
+    print(m.get_spikes_at_layer(2))
+    print(m.get_spikes_at_layer(3))
 
+    print(m.get_weights_at_layer(2))
