@@ -10,8 +10,10 @@ FIXED_RATE_NEURON = {'I_e': 0.,        # constant input
                      't_ref': 2.,      # refractory period
                      'V_reset': -80.,  # reset potential
                      'C_m': 320.,      # membrane capacitance
-                     'V_m': -70}       # initial membrane potential
+                     'V_m': -70.}       # initial membrane potential
 
+# These neuron parameters are a reasonable approximation to the 
+# neuron parameters of a DLS 2 neuron.
 DLS2_NEURON = {'I_e': 0.,        # constant input
                'tau_m': 3.,      # membrane time constant
                'V_th': 1200.,    # threshold potential
@@ -19,7 +21,7 @@ DLS2_NEURON = {'I_e': 0.,        # constant input
                't_ref': 1.5,     # refractory period
                'V_reset': 600.,  # reset potential
                'C_m': 2.36,      # membrane capacitance
-               'V_m': 800}       # initial membrane potential
+               'V_m': 800.}       # initial membrane potential
 
 class Spikes(object):
     def __init__(self):
@@ -30,18 +32,24 @@ class Spikes(object):
                        'times': np.array([])}
 
 class Unit(object):
-    """
+    """A unit in the neural network.
     """
     def __init__(self,  dimension = 0, unit_type = 'iaf_psc_alpha', parameters = DLS2_NEURON):
         self.unit_type = unit_type
         self.dimension = dimension
         self.parameters = parameters
-        self.node_ids = ()
         self.input_connections = []
         self.output_connections = []
-        self.spike_detector = None
         self.spikes = Spikes()
         self._weights = None
+        self.node_ids = ()
+        self.spike_detector = None
+
+    def create(self):
+        self.node_ids = nest.Create(self.unit_type, self.dimension, params=self.parameters)
+        # create spike detector for the unit
+        self.spike_detector = nest.Create('spike_detector', self.dimension,  params={"withgid": True, "withtime": True})
+        nest.Connect(self.node_ids, self.spike_detector)
 
     def get_spikes(self):
         self.spikes.nr_spikes_prev = self.spikes.nr_spikes_total
@@ -78,17 +86,14 @@ class Unit(object):
         return activity
 
 class Sequential(object):
-    """
+    """A sequential model.
     """
     def __init__(self):
         self.units = []
         self.input_unit = None
 
     def add(self, unit):
-        unit.node_ids = nest.Create(unit.unit_type, unit.dimension)
-        # create spike detector for the unit
-        unit.spike_detector = nest.Create('spike_detector', unit.dimension,  params={"withgid": True, "withtime": True})
-        nest.Connect(unit.node_ids, unit.spike_detector)
+        unit.create()
         self.units.append(unit)
     
     def build(self):
@@ -110,14 +115,7 @@ class Sequential(object):
             dimension=units[0].dimension, 
             parameters=FIXED_RATE_NEURON
         )
-        self.input_unit.node_ids = nest.Create(unit.unit_type, unit.dimension)
-        # create spike detector for the unit
-        self.input_unit.spike_detector = nest.Create(
-            'spike_detector', 
-            self.input_unit.dimension,  
-            params={"withgid": True, "withtime": True}
-        )
-        nest.Connect(self.input_unit.node_ids, self.input_unit.spike_detector)
+        self.input_unit.create()
 
         # and connect them to the first layer
         # TODO(Christian): This should not be hardcoded here, but just another kind of layer.
@@ -193,15 +191,14 @@ if __name__ == '__main__':
     m.set_stimulus(1000.0 * np.ones(100))
     nest.Simulate(100)
 
-    print(m.get_activity_at_input())
     print(m.get_activity_at_layer(0))
     print(m.get_activity_at_layer(1))
     print(m.get_activity_at_layer(2))
     print(m.get_activity_at_layer(3))
 
-    print(m.get_spikes_at_layer(0))
-    print(m.get_spikes_at_layer(1))
-    print(m.get_spikes_at_layer(2))
-    print(m.get_spikes_at_layer(3))
+    # print(m.get_spikes_at_layer(0))
+    # print(m.get_spikes_at_layer(1))
+    # print(m.get_spikes_at_layer(2))
+    # print(m.get_spikes_at_layer(3))
 
-    print(m.get_weights_at_layer(2))
+    # print(m.get_weights_at_layer(2))
