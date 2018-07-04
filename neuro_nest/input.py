@@ -17,7 +17,6 @@ def spike_tensor_quantization(v, T):
         T: total number of timesteps to use.
     """
     phi = np.zeros_like(v)
-    generated_spikes = []
 
     for t in range(T):
         phi += v
@@ -26,9 +25,8 @@ def spike_tensor_quantization(v, T):
             i = np.argmax(phi_abs)
             s = np.sign(phi[i])
             phi[i] -= s
-            generated_spikes.append(SignedSpike(source=i, sign=s, timestep=t))
-    
-    return generated_spikes
+            yield SignedSpike(source=i, sign=s, timestep=t)
+
 
 def stochastic_vector_sampling(v, T):
     """Stochastically sample from a vector in R^d.
@@ -49,10 +47,7 @@ def stochastic_vector_sampling(v, T):
         for _ in range(N):
             i = np.random.multinomial(1, pvals=p)
             s = np.sign(v[i])
-            generated_spikes.append(SignedSpike(source=i, sign=s, timestep=t))
-
-
-
+            yield SignedSpike(source=i, sign=s, timestep=t)
 
 def spike_tensor_stream_quantization(v, timesteps):
     """Quantize a vector in R^d into a sequence of signed events.
@@ -74,9 +69,8 @@ def spike_tensor_stream_quantization(v, timesteps):
             i = np.argmax(phi_abs)
             s = np.sign(phi[i])
             phi[i] -= s
-            generated_spikes.append(SignedSpike(source=i, sign=s, timestep=t))
-    
-    return generated_spikes
+            yield SignedSpike(source=i, sign=s, timestep=t)
+
 
 
 
