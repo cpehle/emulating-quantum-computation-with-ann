@@ -40,7 +40,6 @@ def stochastic_vector_sampling(v, T):
     """
     mag = np.sum(np.abs(v))
     p = np.abs(v)/mag
-    generated_spikes = []
 
     for t in range(T):
         N = np.random.poisson(mag) # total number of events to be generated
@@ -60,7 +59,6 @@ def spike_tensor_stream_quantization(v, timesteps):
         timesteps: total number of timesteps to use.
     """
     phi = np.zeros_like(v)
-    generated_spikes = []
 
     for t in range(timesteps):
         phi += v

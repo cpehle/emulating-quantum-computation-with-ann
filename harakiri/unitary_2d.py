@@ -34,7 +34,7 @@ def generate_data(unitary_transform, num_samples=1000):
   y = tfm.real_of_complex(psi_final.T)
   return x, y
 
-def build_linear_model(units, optimizer='rmsprop'):
+def build_linear_model(units, optimizer='adam'):
   """
   Build a multi-layer linear regression model using 
   mean squared error as a loss function.
@@ -57,7 +57,7 @@ def build_linear_model(units, optimizer='rmsprop'):
   )
   return model
 
-def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
+def build_non_linear_model(units, activation='relu', optimizer='adam'):
   """
   Build a multi-layer non-linear regression model using 
   mean squared error as a loss function.
@@ -81,7 +81,7 @@ def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
   )
   return model
 
-def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optimizer='rmsprop'):
+def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optimizer='adam'):
   """
   Build a multi-layer non-linear quantized regression model using 
   mean squared error as a loss function.
