@@ -1,4 +1,5 @@
 import nest
+# import torch as th
 import numpy as np
 
 # These neuron parameters lead to a iaf_psc_alpha neuron that fires with a
@@ -22,6 +23,17 @@ DLS2_NEURON = {'I_e': 0.,        # constant input
                'V_reset': 600.,  # reset potential
                'C_m': 2.36,      # membrane capacitance
                'V_m': 800.}       # initial membrane potential
+
+def _softmax(x):
+    """
+    """
+    e_x = np.exp(x - np.max(x))
+    return e_x / e_x.sum()
+
+def _softmax_grad(x):
+    """
+    """
+    return _softmax(x) * (np.eye(10,10) - _softmax(x))
 
 class Spikes(object):
     def __init__(self):
@@ -85,6 +97,23 @@ class Unit(object):
             activity /= mean
         return activity
 
+    def get_softmax_activity(self):
+        """Produce an activity vector squashed to the interval (0,1).
+        
+        This implements the canonical map R^n_+ -> Delta_{n-1}.
+        """
+        senders = self.get_new_spikes()["senders"]
+        activity = np.zeros(self.dimension)
+        for idx, neuron_id in enumerate(self.node_ids):
+            activity[idx] += len(np.where(np.array(senders)==neuron_id)[0])
+        return _softmax(activity)
+
+    def backward(self, error):
+        """Perform a backward pass.
+        """
+        err = np.zeros(100)
+        return err 
+
 class Sequential(object):
     """A sequential model.
     """
@@ -135,6 +164,9 @@ class Sequential(object):
     def get_activity_at_layer(self, layer_index):
         return self.units[layer_index].get_activity()
 
+    def get_softmax_activity_at_layer(self, layer_index):
+        return self.units[layer_index].get_softmax_activity()
+
     def get_activity_at_output(self):
         last_layer_idx = len(self.units)-1
         return self.units[last_layer_idx].get_activity()
@@ -175,6 +207,26 @@ class Sequential(object):
                 )
                 nest.SetStatus(synapse, {"weight": weights[i,j]})
 
+    def raster_plot(self):
+        """Create a raster plot of the activity in the feed forward network.
+        """
+        import matplotlib.pyplot as plt
+
+        for idx, unit in enumerate(self.units):
+            spikes = unit.get_spikes()
+            st = spikes["times"]
+            ss = spikes["senders"]
+            # plt.plot(st, ss, 'k|', markersize=16, alpha=0.1)
+            plt.subplot(len(self.units), 1, idx+1)
+            plt.hist2d(st, ss, bins=[250,len(np.unique(ss))])
+            plt.xticks([])
+            plt.yticks([])
+
+        plt.savefig("network.png", dpi=300)
+        plt.tight_layout()
+        plt.show()
+
+
     def set_stimulus(self, input):
         for i, n in enumerate(self.input_unit.node_ids):
             nest.SetStatus(tuple((n,)), {"I_e": 1000. * input[i]})
@@ -183,22 +235,18 @@ if __name__ == '__main__':
     # example model
     m = Sequential()
     m.add(Unit(4))
-    m.add(Unit(20))
-    m.add(Unit(20))
-    m.add(Unit(4))
+    m.add(Unit(400))
+    m.add(Unit(400))
+    m.add(Unit(400))
+    m.add(Unit(8))
     m.build()
 
     m.set_stimulus(1000.0 * np.ones(100))
     nest.Simulate(100)
 
+    m.raster_plot()
+
     print(m.get_activity_at_layer(0))
-    print(m.get_activity_at_layer(1))
-    print(m.get_activity_at_layer(2))
-    print(m.get_activity_at_layer(3))
-
-    # print(m.get_spikes_at_layer(0))
-    # print(m.get_spikes_at_layer(1))
-    # print(m.get_spikes_at_layer(2))
-    # print(m.get_spikes_at_layer(3))
-
-    # print(m.get_weights_at_layer(2))
+    print(m.get_softmax_activity_at_layer(1))
+    print(m.get_softmax_activity_at_layer(2))
+    print(m.get_softmax_activity_at_layer(3))
