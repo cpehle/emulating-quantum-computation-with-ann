@@ -41,7 +41,7 @@ def binary_tanh(x):
   return x
 
 def binary_tanh_np(x):
-  x = 2 * hard_sigmoid_np(x) - 1
+  x = 2 * binary_sigmoid_np(x) - 1
   return x
 
 def binarize(W, H=1):
