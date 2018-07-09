@@ -7,8 +7,7 @@ from . import quantum as qm
 
 def sphere_points_2d():
   """ 
-  Generate points on the sphere S^2 in an
-  grid.
+  Generate points on the sphere S^2 in an grid.
 
   Returns:
     x,y,z (tuple): cartesian coordinates of the points that were generated.

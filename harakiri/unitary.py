@@ -7,6 +7,22 @@ import keras
 from keras.layers.core import Dense, Activation, Dropout
 from keras.models import Sequential
 
+def generate_shifted_data(unitary_transform, num_samples=1000, eps = 0.01):
+  """
+  Generate training samples for the given unitary transformation. 
+
+  Args:
+    num_samples (int): Number of samples to generate.
+  """
+  dim = np.shape(unitary_transform)[0]
+  psi_initial = rnd.complex_projective_spherical(n = dim, m = num_samples)
+  psi_final = np.matmul(unitary_transform, psi_initial)
+  x = tfm.real_of_complex(psi_initial.T)
+  shift_x = np.amax(np.abs(x)) * np.ones_like(x) + eps
+  y = tfm.real_of_complex(psi_final.T)
+  shift_y = np.amax(np.abs(y)) * np.ones_like(y) + eps
+  return x + shift_x, y + shift_y
+
 def generate_data(unitary_transform, num_samples=1000):
   """
   Generate training samples for the given unitary transformation.
@@ -27,9 +43,9 @@ def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
   mean squared error as a loss function.
 
   Args:
-    units: List of dimensions of the units to be used
-    activation: activation function to be used
-    optimizer: optimizer to be used
+    units: List of dimensions of the units to be used.
+    activation: Activation function to be used.
+    optimizer: Optimizer to be used.
   """
   model = Sequential()
   for unit in units:

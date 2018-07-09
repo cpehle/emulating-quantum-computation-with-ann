@@ -6,6 +6,11 @@ class SignedSpike(object):
         self.sign = sign
         self.timestep = timestep
 
+    def __str__(self):
+        """String representation of a signed spike.
+        """
+        return('({}, {}, {})'.format(self.timestep, self.sign, self.source))
+
 def spike_tensor_quantization(v, T):
     """Quantize a vector in R^d into a sequence of signed events.
     c.f. Algorithm 4 in https://arxiv.org/pdf/1602.08323.pdf.
@@ -27,8 +32,7 @@ def spike_tensor_quantization(v, T):
             phi[i] -= s
             yield SignedSpike(source=i, sign=s, timestep=t)
 
-
-def stochastic_vector_sampling(v, T):
+def stochastic_tensor_sampling(v, T):
     """Stochastically sample from a vector in R^d.
     c.f. Algorithm 5 in https://arxiv.org/pdf/1602.08323.pdf.
 
@@ -69,9 +73,6 @@ def spike_tensor_stream_quantization(v, timesteps):
             phi[i] -= s
             yield SignedSpike(source=i, sign=s, timestep=t)
 
-
-
-
 def rectified_tensor_quantization(v, timesteps):
      """Quantize a vector in R^d into a sequence of positive events.
     c.f. Algorithm 2 in https://arxiv.org/pdf/1602.08323.pdf.
@@ -82,3 +83,22 @@ def rectified_tensor_quantization(v, timesteps):
         v: numpy float tensor of arbitrary shape to be quantized.
         timesteps: total number of timesteps to use.
     """
+
+def stochastic_tensor_sampling_test():
+    v = np.random.randn(10)
+    T = 1000
+    samples = stochastic_tensor_sampling(v, T)
+    for s in samples:
+        print(s)
+
+def spike_tensor_quantization_test():
+    v = np.random.randn(10)
+    T = 1000
+    samples = spike_tensor_quantization(v, T)
+    for s in samples:
+        print(s)
+
+
+if __name__ == '__main__':
+    stochastic_tensor_sampling_test()
+    # spike_tensor_quantization_test()

@@ -34,6 +34,22 @@ def generate_data(unitary_transform, num_samples=1000):
   y = tfm.real_of_complex(psi_final.T)
   return x, y
 
+
+def generate_shifted_data(unitary_transform, num_samples=1000, eps = 0.01):
+  """
+  Generate shifted training samples for the given unitary transformation. 
+
+  Args:
+    unitary_transform: Unitary transformation to generate samples for.
+    num_samples (int): Number of samples to generate.
+    eps (float): Additional offset from 0.
+  """
+  x,y = generate_data(unitary_transform=unitary_transform, num_samples=num_samples)
+  shift_x = np.amax(np.abs(x)) * np.ones_like(x) + eps
+  shift_y = np.amax(np.abs(y)) * np.ones_like(y) + eps
+  return x + shift_x, y + shift_y
+
+
 def build_linear_model(units, optimizer='adam'):
   """
   Build a multi-layer linear regression model using 
@@ -87,10 +103,10 @@ def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optim
   mean squared error as a loss function.
 
   Args:
-    units: List of dimensions of the units to be used
+    units: List of dimensions of the units to be used.
     num_bits: Number of bits the weights are supposed to be quantized to.
-    activation: activation function to be used
-    optimizer: optimizer to be used
+    activation: Activation function to be used.
+    optimizer: Optimizer to be used.
   """
   model = Sequential()
   for unit in units:
@@ -158,3 +174,6 @@ def train_model(
     plt.show()
 
   return model, history
+
+if __name__ == '__main__':
+  pass
