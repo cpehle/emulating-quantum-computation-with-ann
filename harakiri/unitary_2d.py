@@ -124,12 +124,14 @@ def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optim
   return model
 
 def train_model(
-    unitary_transform, 
+    unitary_transform,
+    name='',
     epochs=3000, 
     num_samples=1000,
     batch_size=512,
     model=build_linear_model(units=[4]),
-    plot_losses=True
+    plot_losses=True,
+    data=None
   ):
   """
   Train a model for a given constant unitary transformation. Per default
@@ -138,13 +140,16 @@ def train_model(
 
   Args:
     unitary_transform: Unitary transformation to be fit.
+    name: Name of the model.
     epochs: Number of epochs to be trained.
     num_samples: Number of training samples to be generated.
     batch_size: Batch size to be used.
     model: Model to be trained.
   """
-  x,y = generate_data(unitary_transform, num_samples=num_samples)
-
+  if data is None:
+    x,y = generate_data(unitary_transform, num_samples=num_samples)
+  else:
+    x,y = data
   # define call backs for tensorboard visualization etc.
   callbacks = []
   if False:
@@ -165,15 +170,116 @@ def train_model(
     import matplotlib.pyplot as plt
     training_loss = history.history['loss']
     validation_loss = history.history['val_loss']
+    plt.figure()
     plt.plot(training_loss, label='training loss')
     plt.plot(validation_loss, label='validation loss')
     plt.yscale('log')
     plt.xlabel('steps')
     plt.ylabel('loss')
+    plt.title('{}'.format(name))
     plt.legend()
-    plt.show()
+    plt.savefig('figures/{}.png'.format(name))
 
   return model, history
 
-if __name__ == '__main__':
+
+def generate_loss_sweep(gate = qm.hadamard, units = [8,8,4], num_runs=100):
+  epochs = 1500
+  training_losses = []
+  for i in range(num_runs):
+    model, history = train_model(
+        unitary_transform=gate, 
+        name='',
+        epochs=epochs,
+        model=build_non_linear_model(units=units, activation='linear'),
+        plot_losses=False
+      )
+    training_losses.append(history.history['loss'])
+  return training_losses
+
+def generate_loss_sweep_plot(name='hadamard', title='', gate = qm.hadamard, units = [8,8,4], num_runs=100):
+  training_losses = generate_loss_sweep(gate, units, num_runs)
+  import matplotlib.pyplot as plt
+  import seaborn as sns
+  plt.figure()
+  plt.title(title)
+  plt.yscale('log')
+  plt.xlabel('steps')
+  plt.ylabel('loss')
+  sns.tsplot(np.array(training_losses))
+  plt.savefig('sweep_{}.png'.format(name))
+
+
+
+def generate_plots(units = [8,8,4], unit_string='8_8_4'):
+  gates = [
+    qm.rotate(i*np.pi/32)
+    for i in range(64)
+  ] + [qm.hadamard]
+
+  names = [
+    'rotate_{}_{}'.format(i, unit_string)
+    for i in range(64)
+  ] + ['hadamard_{}'.format(unit_string)]
+
+  epochs = 1500
+  for g,name in zip(gates,names):
+    model, history = train_model(
+      unitary_transform=g, 
+      name=name,
+      epochs=epochs,
+      model=build_non_linear_model(units=units, activation='linear')
+    )
+
+def generate_all_plots():
+  num_runs = 50
+  generate_loss_sweep_plot(
+    name='hadamard', 
+    title='Hadamard Gate Linear 8-8-4', 
+    gate=qm.hadamard, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_half', 
+    title='Rotate($\pi/2$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/2), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_quarter', 
+    title='Rotate($\pi/4$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/4), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_eigth', 
+    title='Rotate($\pi/8$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/8), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_sixteenth', 
+    title='Rotate($\pi/16$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/16), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='x_gate', 
+    title='Pauli-X Gate Linear 8-8-4', 
+    gate=qm.sigma_1, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='z_gate', 
+    title='Pauli-Z Gate Linear 8-8-4', 
+    gate=qm.sigma_3, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
   pass

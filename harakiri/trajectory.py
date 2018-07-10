@@ -54,7 +54,6 @@ def generate_bloch_sphere_trajectory(psi_initial, one_parameter_subgroup, steps=
   y = psi_real[1:steps-1]
   return np.reshape(x, (np.shape(x)[0],1,4)),np.reshape(y, (np.shape(y)[0],4))
 
-
 def build_lstm_model(layers, optimizer='rmsprop'):
   """Create a simple time series prediction model.
 

@@ -10,6 +10,21 @@ def real_of_complex(z):
   """
   return np.vstack((np.real(z[:,0]),np.imag(z[:,0]),np.real(z[:,1]),np.imag(z[:,1]))).T
 
+
+def real_of_complex_tensor(z):
+  """
+  """
+  x = np.real(z)
+  y = np.imag(z)
+  return np.hstack((x,y))
+
+def complex_of_real_tensor(x):
+  """
+  """
+  x,y = np.hsplit(x, 2)
+  return np.complex(x,y)
+
+
 def real_of_complex_test():
   z = np.array([[1.0 + 1.0j, 2.0 + 2.0j]])
   x_ = np.array([[1.0, 1.0, 2.0, 2.0]])

@@ -1,27 +1,13 @@
 from . import random as rnd
 from . import transform as tfm
+from . import quantum as qm
 
 import numpy as np
+import pandas as pd
 
 import keras
 from keras.layers.core import Dense, Activation, Dropout
 from keras.models import Sequential
-
-def generate_shifted_data(unitary_transform, num_samples=1000, eps = 0.01):
-  """
-  Generate training samples for the given unitary transformation. 
-
-  Args:
-    num_samples (int): Number of samples to generate.
-  """
-  dim = np.shape(unitary_transform)[0]
-  psi_initial = rnd.complex_projective_spherical(n = dim, m = num_samples)
-  psi_final = np.matmul(unitary_transform, psi_initial)
-  x = tfm.real_of_complex(psi_initial.T)
-  shift_x = np.amax(np.abs(x)) * np.ones_like(x) + eps
-  y = tfm.real_of_complex(psi_final.T)
-  shift_y = np.amax(np.abs(y)) * np.ones_like(y) + eps
-  return x + shift_x, y + shift_y
 
 def generate_data(unitary_transform, num_samples=1000):
   """
@@ -31,13 +17,30 @@ def generate_data(unitary_transform, num_samples=1000):
     num_samples (int): Number of samples to generate.
   """
   dim = np.shape(unitary_transform)[0]
-  psi_initial = rnd.complex_projective_spherical(n = dim, m = num_samples)
+  assert(dim == 4)
+
+  phi,theta = rnd.uniform_2d_spherical(m = num_samples)
+  psi_0_initial = qm.psi(theta = theta, phi = phi)
+  phi,theta = rnd.uniform_2d_spherical(m = num_samples)
+  psi_1_initial = qm.psi(theta = theta, phi = phi)
+  psi_initial = np.vstack((psi_0_initial, psi_1_initial))
+
   psi_final = np.matmul(unitary_transform, psi_initial)
-  x = tfm.real_of_complex(psi_initial.T)
-  y = tfm.real_of_complex(psi_final.T)
+
+  x_0 = tfm.real_of_complex(psi_0_initial.T)
+  x_1 = tfm.real_of_complex(psi_1_initial.T)
+  x = np.hstack((x_0, x_1))
+
+  psi_0_final = psi_final[:2,:]
+  psi_1_final = psi_final[2:,:]
+
+  y_0 = tfm.real_of_complex(psi_0_final.T)
+  y_1 = tfm.real_of_complex(psi_1_final.T)
+
+  y = np.hstack((y_0, y_1))
   return x, y
 
-def build_non_linear_model(units, activation='relu', optimizer='rmsprop'):
+def build_non_linear_model(units, activation='relu', optimizer='adam'):
   """
   Build a multi-layer non-linear regression model using 
   mean squared error as a loss function.
@@ -66,8 +69,9 @@ def train_model(
     epochs=3000, 
     num_samples=1000,
     batch_size=512,
-    model=build_non_linear_model(units=[4]),
-    plot_losses=True
+    model=build_non_linear_model(units=[16,16,8], activation='linear'),
+    plot_losses=True,
+    data=None
   ):
   """
   Train a model for a given constant unitary transformation. Per default
@@ -83,7 +87,10 @@ def train_model(
     batch_size: Batch size to be used.
     model: Model to be trained.
   """
-  x,y = generate_data(unitary_transform, num_samples=num_samples)
+  if data is None:
+    x,y = generate_data(unitary_transform, num_samples=num_samples)
+  else:
+    x,y = data
 
   # define call backs for tensorboard visualization etc.
   callbacks = []
@@ -114,6 +121,27 @@ def train_model(
     plt.show()
 
   return model, history
+
+def generate_sweep_plots():
+  training_losses = []
+  num_runs = 10
+  epochs = 1500
+  for i in range(num_runs):
+    model, history = train_model(unitary_transform=qm.cnot, epochs=epochs, plot_losses=False)
+    training_losses.append(history.history['loss'])
+  import matplotlib.pyplot as plt
+  import seaborn as sns
+  plt.figure()
+  plt.title('CNOT Gate Linear 16-16-8')
+  plt.yscale('log')
+  plt.xlabel('steps')
+  plt.ylabel('loss')
+  sns.tsplot(np.array(training_losses))
+  plt.savefig('sweep_{}.png'.format('cnot'))
+
+if __name__ == '__main__':
+  pass
+  
 
 
 
