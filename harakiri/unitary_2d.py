@@ -206,7 +206,7 @@ def generate_loss_sweep_plot(name='hadamard', title='', gate = qm.hadamard, unit
   plt.yscale('log')
   plt.xlabel('steps')
   plt.ylabel('loss')
-  sns.tsplot(np.array(training_losses))
+  sns.tsplot(np.array(training_losses), err_style='unit_traces')
   plt.savefig('sweep_{}.png'.format(name))
 
 
@@ -231,8 +231,7 @@ def generate_plots(units = [8,8,4], unit_string='8_8_4'):
       model=build_non_linear_model(units=units, activation='linear')
     )
 
-def generate_all_plots():
-  num_runs = 50
+def generate_all_plots(num_runs = 5):
   generate_loss_sweep_plot(
     name='hadamard', 
     title='Hadamard Gate Linear 8-8-4', 
@@ -282,4 +281,3 @@ def generate_all_plots():
     units=[8,8,4],
     num_runs=num_runs
   )
-  pass
