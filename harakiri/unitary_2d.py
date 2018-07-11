@@ -182,7 +182,6 @@ def train_model(
 
   return model, history
 
-
 def generate_loss_sweep(gate = qm.hadamard, units = [8,8,4], num_runs=100):
   epochs = 1500
   training_losses = []
@@ -208,28 +207,6 @@ def generate_loss_sweep_plot(name='hadamard', title='', gate = qm.hadamard, unit
   plt.ylabel('loss')
   sns.tsplot(np.array(training_losses), err_style='unit_traces')
   plt.savefig('sweep_{}.png'.format(name))
-
-
-
-def generate_plots(units = [8,8,4], unit_string='8_8_4'):
-  gates = [
-    qm.rotate(i*np.pi/32)
-    for i in range(64)
-  ] + [qm.hadamard]
-
-  names = [
-    'rotate_{}_{}'.format(i, unit_string)
-    for i in range(64)
-  ] + ['hadamard_{}'.format(unit_string)]
-
-  epochs = 1500
-  for g,name in zip(gates,names):
-    model, history = train_model(
-      unitary_transform=g, 
-      name=name,
-      epochs=epochs,
-      model=build_non_linear_model(units=units, activation='linear')
-    )
 
 def generate_all_plots(num_runs = 5):
   generate_loss_sweep_plot(
