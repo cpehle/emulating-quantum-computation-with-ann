@@ -67,8 +67,8 @@ def build_non_linear_model(units, activation='relu', optimizer='adam'):
 def train_model(
     unitary_transform, 
     epochs=3000, 
-    num_samples=1000,
-    batch_size=512,
+    num_samples=10000,
+    batch_size=1000,
     model=build_non_linear_model(units=[16,16,8], activation='linear'),
     plot_losses=True,
     data=None
@@ -122,12 +122,15 @@ def train_model(
 
   return model, history
 
-def generate_sweep_plots():
+def generate_sweep_plots(error_style = 'ci_band', num_runs=10):
   training_losses = []
-  num_runs = 10
   epochs = 1500
   for i in range(num_runs):
-    model, history = train_model(unitary_transform=qm.cnot, epochs=epochs, plot_losses=False)
+    model, history = train_model(
+      unitary_transform=qm.cnot, 
+      epochs=epochs, 
+      plot_losses=False
+    )
     training_losses.append(history.history['loss'])
   import matplotlib.pyplot as plt
   import seaborn as sns
@@ -136,7 +139,7 @@ def generate_sweep_plots():
   plt.yscale('log')
   plt.xlabel('steps')
   plt.ylabel('loss')
-  sns.tsplot(np.array(training_losses))
+  sns.tsplot(np.array(training_losses), err_style=error_style)
   plt.savefig('sweep_{}.png'.format('cnot'))
 
 if __name__ == '__main__':

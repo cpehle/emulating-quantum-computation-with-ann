@@ -115,7 +115,3 @@ def train_1d_sin_model(epochs=500, plot_losses=True):
     plt.ylabel('loss')
     plt.legend()
     plt.show()
-
-def train_on_bloch_sphere_trajectory():
-    """
-    """
