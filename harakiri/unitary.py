@@ -1,6 +1,7 @@
 from . import random as rnd
 from . import transform as tfm
 from . import quantum as qm
+from .layers.quantized import quantized_layers as qnt
 
 import numpy as np
 import pandas as pd
@@ -64,11 +65,35 @@ def build_non_linear_model(units, activation='relu', optimizer='adam'):
   )
   return model
 
+def build_non_linear_quantized_model(units, activation='relu', optimizer='adam'):
+  """
+  Build a multi-layer non-linear quantized regression model using 
+  mean squared error as a loss function.
+
+  Args:
+    units: List of dimensions of the units to be used.
+    activation: Activation function to be used.
+    optimizer: Optimizer to be used.
+  """
+  model = Sequential()
+  for unit in units:
+    model.add(qnt.QuantizedDense(
+      units=unit,
+      use_bias=True,
+      activation=activation
+    ))
+  model.compile(
+    loss="mse", 
+    optimizer=optimizer,
+    metrics=['accuracy']
+  )
+  return model
+
 def train_model(
     unitary_transform, 
     epochs=3000, 
-    num_samples=10000,
-    batch_size=1000,
+    num_samples=5000,
+    batch_size=5000,
     model=build_non_linear_model(units=[16,16,8], activation='linear'),
     plot_losses=True,
     data=None
@@ -122,20 +147,26 @@ def train_model(
 
   return model, history
 
-def generate_sweep_plots(error_style = 'ci_band', num_runs=10):
+def generate_sweep_plots(error_style='unit_traces', num_runs=100, quantize=False):
   training_losses = []
-  epochs = 1500
+  epochs = 6000
   for i in range(num_runs):
+    if quantize:
+      model = build_non_linear_quantized_model(units=[16,16,8], activation='linear')
+    else:
+      model = build_non_linear_model(units=[16,16,8], activation='linear')
     model, history = train_model(
       unitary_transform=qm.cnot, 
       epochs=epochs, 
-      plot_losses=False
+      plot_losses=False,
+      model=model
     )
     training_losses.append(history.history['loss'])
+
   import matplotlib.pyplot as plt
   import seaborn as sns
   plt.figure()
-  plt.title('CNOT Gate Linear 16-16-8')
+  plt.title('CNOT Gate Linear 4Bit-Quantized 16-16-8')
   plt.yscale('log')
   plt.xlabel('steps')
   plt.ylabel('loss')

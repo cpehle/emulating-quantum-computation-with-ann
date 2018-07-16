@@ -238,114 +238,118 @@ def generate_loss_sweep_plot(
   plt.savefig('sweep_{}.png'.format(name))
 
 def generate_all_plots(num_runs = 5):
-  # generate_loss_sweep_plot(
-  #   name='hadamard', 
-  #   title='Hadamard Gate Linear 8-8-4', 
-  #   gate=qm.hadamard, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_half', 
-  #   title='Rotate($\pi/2$) Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/2), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_quarter', 
-  #   title='Rotate($\pi/4$) Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/4), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_eigth', 
-  #   title='Rotate($\pi/8$) Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/8), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_sixteenth', 
-  #   title='Rotate($\pi/16$) Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/16), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='x_gate', 
-  #   title='Pauli-X Gate Linear 8-8-4', 
-  #   gate=qm.sigma_1, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
-  # generate_loss_sweep_plot(
-  #   name='z_gate', 
-  #   title='Pauli-Z Gate Linear 8-8-4', 
-  #   gate=qm.sigma_3, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs
-  # )
+  #units = [8,8,4]
+  #name = 'hadamard_gate'
+  #title_postfix = '-'.join([str(i) for i in units])
+  #[word.capitalize() for word in name.split('_')]
+  generate_loss_sweep_plot(
+    name='hadamard', 
+    title='Hadamard Gate Linear 8-8-4', 
+    gate=qm.hadamard, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_half', 
+    title='Rotate($\pi/2$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/2), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_quarter', 
+    title='Rotate($\pi/4$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/4), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_eigth', 
+    title='Rotate($\pi/8$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/8), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='rotate_sixteenth', 
+    title='Rotate($\pi/16$) Linear 8-8-4', 
+    gate=qm.rotate(np.pi/16), 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='x_gate', 
+    title='Pauli-X Gate Linear 8-8-4', 
+    gate=qm.sigma_1, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
+  generate_loss_sweep_plot(
+    name='z_gate', 
+    title='Pauli-Z Gate Linear 8-8-4', 
+    gate=qm.sigma_3, 
+    units=[8,8,4],
+    num_runs=num_runs
+  )
 
   # quantized plots
 
-  # generate_loss_sweep_plot(
-  #   name='hadamard-quantized', 
-  #   title='Hadamard Gate 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.hadamard, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_half-quantized', 
-  #   title='Rotate($\pi/2$) 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/2), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_quarter-quantized', 
-  #   title='Rotate($\pi/4$) 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/4), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_eigth-quantized', 
-  #   title='Rotate($\pi/8$) 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/8), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='rotate_sixteenth-quantized', 
-  #   title='Rotate($\pi/16$) 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.rotate(np.pi/16), 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='x_gate-quantized', 
-  #   title='Pauli-X Gate 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.sigma_1, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
-  # generate_loss_sweep_plot(
-  #   name='z_gate-quantized', 
-  #   title='Pauli-Z Gate 4Bit-Quantized Linear 8-8-4', 
-  #   gate=qm.sigma_3, 
-  #   units=[8,8,4],
-  #   num_runs=num_runs,
-  #   quantize=True
-  # )
+  generate_loss_sweep_plot(
+    name='hadamard-quantized', 
+    title='Hadamard Gate 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.hadamard, 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='rotate_half-quantized', 
+    title='Rotate($\pi/2$) 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.rotate(np.pi/2), 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='rotate_quarter-quantized', 
+    title='Rotate($\pi/4$) 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.rotate(np.pi/4), 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='rotate_eigth-quantized', 
+    title='Rotate($\pi/8$) 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.rotate(np.pi/8), 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='rotate_sixteenth-quantized', 
+    title='Rotate($\pi/16$) 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.rotate(np.pi/16), 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='x_gate-quantized', 
+    title='Pauli-X Gate 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.sigma_1, 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
+  generate_loss_sweep_plot(
+    name='z_gate-quantized', 
+    title='Pauli-Z Gate 4Bit-Quantized Linear 8-8-4', 
+    gate=qm.sigma_3, 
+    units=[8,8,4],
+    num_runs=num_runs,
+    quantize=True
+  )
   generate_loss_sweep_plot(
     name='hadamard-quantized', 
     title='Hadamard Gate 4Bit-Quantized Linear 16-16-4', 

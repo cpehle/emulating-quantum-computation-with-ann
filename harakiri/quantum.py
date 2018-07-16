@@ -45,14 +45,12 @@ def normalize_state(psi):
   return psi/norm
 
 def norm(psi):
-  """
-  Compute the norm of the state `psi`.
+  """Compute the norm of the state `psi`.
   """
   return np.sqrt(np.real(np.dot(psi.T, psi)))
 
 def nkron(*args):
-  """
-  Calculate a kronecker product over a variable number of inputs.
+  """Calculate a kronecker product over a variable number of inputs.
 
   Args:
     args: Matrices / vectors of which the tensor product is to be formed.
@@ -68,8 +66,7 @@ p_1 = np.dot(one, one.T)
 cnot = np.kron(p_0,sigma_0) + np.kron(p_1,sigma_1)
 
 def rotate(phi):
-  """
-  Implements the R(phi) rotation gate.
+  """Implements the R(phi) rotation gate.
 
   Args:
     phi (float): Rotation angle.
@@ -78,10 +75,14 @@ def rotate(phi):
                    [0.0, np.exp(1.0j*phi)]])
 
 def rho(psi):
-  """
-  Compute the density of state matrix.
+  """Compute the density of state matrix.
 
   Args:
     psi (tensor of shape (2,n))
   """
   return np.dot(psi, psi.T)
+
+def measure():
+  """Measure an n-Qbit state. This is non-deterministic.
+  """
+  pass
