@@ -17,7 +17,7 @@ one = np.array([[0.0 + 0.0j],
                 [1.0 + 0.0j]])
 
 # hadamard gate
-hadamard = 1.0/np.sqrt(2) * (sigma_1 + sigma_3)
+hadamard = 1.0/np.sqrt(2) * (sigma_1 + sigma_3) + 1.0j*np.zeros((2,2))
 
 def psi(theta, phi):
   """
@@ -75,7 +75,7 @@ def rotate(phi):
                    [0.0, np.exp(1.0j*phi)]])
 
 def rho(psi):
-  """Compute the density of state matrix.
+  """Compute the density of state matrix for a pure state.
 
   Args:
     psi (tensor of shape (2,n))
@@ -86,3 +86,4 @@ def measure():
   """Measure an n-Qbit state. This is non-deterministic.
   """
   pass
+

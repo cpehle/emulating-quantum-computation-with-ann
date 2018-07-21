@@ -97,3 +97,33 @@ def uniform_2d_spherical_within(
   phi = delta_phi * np.random.rand(m) + phi_min
   theta = (delta_theta/np.pi) * np.arccos(1 - 2 * np.random.rand(m)) + theta_min
   return phi,theta
+
+
+def ginibre_ensemble_sample(n = 2):
+  """Generate random matrix in  C^{n x n} based
+  on $2n x 2n $ independent random uniformly drawn samples.
+
+  Args:
+    n (int): Dimension of the space of matrices.
+  """
+  return np.random.randn(n,n) + 1.0j*np.random.randn(n,n)
+
+def density_matrix_ginibre_sample(n = 2):
+  """Generate random desnsity matrix based on the ginibre ensemble.
+
+  Args:
+    n (int): Dimension of the space of matrices
+  """
+  s = ginibre_ensemble_sample(n = n)
+  h = np.matmul(s, s.H)
+  h_trace = np.trace(h)
+  return h / h_trace
+
+def density_matrix_ginibre(n = 2, m = 1000):
+  """Generate random desnsity matrices based on the ginibre ensemble.
+
+  Args:
+    n (int): Dimension of the space of matrices
+    m (int): Number of samples
+  """
+  return np.stack([ginibre_ensemble_sample(n = n) for i in range(m)])

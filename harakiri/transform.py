@@ -24,7 +24,6 @@ def complex_of_real_tensor(x):
   x,y = np.hsplit(x, 2)
   return np.complex(x,y)
 
-
 def real_of_complex_test():
   z = np.array([[1.0 + 1.0j, 2.0 + 2.0j]])
   x_ = np.array([[1.0, 1.0, 2.0, 2.0]])
@@ -74,3 +73,12 @@ def theta_phi_of_complex(z):
   shape (2,n)
   """
   return np.stack([theta_of_complex(z), phi_of_complex(z)], axis=1)
+
+def complex_matrix_to_real(m):
+  """Implement the isomorphism between complex and real matrix ring.
+
+  Args:
+    m (complex matrix): Complex matrix to transform.
+  """
+  a, b = np.real(m), np.imag(m)
+  return np.vstack([np.hstack([a,b]), np.hstack([-b, a])])

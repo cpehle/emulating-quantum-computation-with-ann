@@ -97,6 +97,31 @@ def build_non_linear_model(units, activation='relu', optimizer='adam'):
   )
   return model
 
+def build_leaky_relu_model(units, optimizer='adam'):
+  """
+  Build a multi-layer non-linear regression model using 
+  mean squared error as a loss function.
+
+  Args:
+    units: List of dimensions of the units to be used
+    activation: activation function to be used
+    optimizer: optimizer to be used
+  """
+  model = Sequential()
+  for unit in units:
+    model.add(Dense(
+      units=unit,
+      use_bias=True,
+      activation='linear'
+    ))
+    model.add(keras.layers.LeakyReLU(alpha=0.1))
+  model.compile(
+    loss="mse", 
+    optimizer=optimizer,
+    metrics=['accuracy']
+  )
+  return model
+
 def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optimizer='adam'):
   """
   Build a multi-layer non-linear quantized regression model using 
@@ -179,6 +204,10 @@ def train_model(
     plt.title('{}'.format(name))
     plt.legend()
     plt.savefig('figures/{}.png'.format(name))
+
+  for layer in model.layers:
+    print(layer.get_config())
+    print(layer.get_weights())
 
   return model, history
 
