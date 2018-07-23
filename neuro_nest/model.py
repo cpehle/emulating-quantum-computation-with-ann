@@ -235,17 +235,17 @@ if __name__ == '__main__':
     # example model
     m = Sequential()
     m.add(Unit(4))
-    m.add(Unit(20))
-    m.add(Unit(30))
+    m.add(Unit(8))
+    m.add(Unit(8))
+    m.add(Unit(8))
     m.add(Unit(4))
     m.build()
 
-    for i in range(10000):
+    for i in range(2000):
         m.set_stimulus(0.0001 * i * np.ones(10))
+        if  i % 200 is 0:
+            for layer_index in range(1,3):
+                m.set_weights_at_layer(layer_index=layer_index, weights=1000*np.random.randn(8,8))
         nest.Simulate(100)
 
     m.raster_plot()
-    # print(m.get_activity_at_layer(0))
-    # print(m.get_softmax_activity_at_layer(1))
-    # print(m.get_softmax_activity_at_layer(2))
-    # print(m.get_softmax_activity_at_layer(3))
