@@ -82,3 +82,14 @@ def complex_matrix_to_real(m):
   """
   a, b = np.real(m), np.imag(m)
   return np.vstack([np.hstack([a,b]), np.hstack([-b, a])])
+
+def real_matrix_to_complex(m):
+  """Implement the isomorphism between real and complex matrix ring.
+
+  Args:
+    m (real matrix of size 2n x 2n): Real matrix to transform.
+  """
+  n = int(np.shape(m)[0]/2)
+  a = m[0:n, 0:n]
+  b = m[0:n, n:2*n]
+  return a + 1.0j*b

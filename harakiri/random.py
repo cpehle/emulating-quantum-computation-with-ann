@@ -115,7 +115,7 @@ def density_matrix_ginibre_sample(n = 2):
     n (int): Dimension of the space of matrices
   """
   s = ginibre_ensemble_sample(n = n)
-  h = np.matmul(s, s.H)
+  h = np.matmul(s, s.conj().T)
   h_trace = np.trace(h)
   return h / h_trace
 
@@ -126,4 +126,4 @@ def density_matrix_ginibre(n = 2, m = 1000):
     n (int): Dimension of the space of matrices
     m (int): Number of samples
   """
-  return np.stack([ginibre_ensemble_sample(n = n) for i in range(m)])
+  return np.stack([density_matrix_ginibre_sample(n = n) for i in range(m)])

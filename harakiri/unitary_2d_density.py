@@ -15,7 +15,7 @@ def generate_data(u = qm.hadamard, num_samples=10000):
       m (int): Number of samples.
     """
     x = rnd.density_matrix_ginibre(n = 2, m = num_samples)
-    y = np.matmul(np.matmul(u, x), u.T)
+    y = np.matmul(np.matmul(u, x), u.conj().T)
     # reshape and flatten data
     x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,16))
     y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,16))
