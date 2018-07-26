@@ -1,7 +1,4 @@
 import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
-sns.set()
 
 from . import random as rnd
 from . import quantum as qm
@@ -11,68 +8,25 @@ import keras
 from keras.layers.core import Dense, Activation, Dropout
 from keras.models import Sequential
 
-def generate_data(u = qm.hadamard, num_samples=10000):
+import matplotlib.pyplot as plt
+
+def generate_data(u=qm.hadamard, n=2, num_samples=10000):
     """
     Args:
-      u (quantum gate): Two-dimensional quantum gate.
+      u (quantum gate): quantum gate.
+      n (int): Dimension of the quantum gate.
       m (int): Number of samples.
     """
-    x = rnd.density_matrix_ginibre(n = 2, m = num_samples)
+    x = rnd.density_matrix_ginibre(n=n, m=num_samples)
     y = np.matmul(np.matmul(u, x), u.conj().T)
     # reshape and flatten data
-    x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,16))
-    y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,16))
+    #eigenvalues, traces, eigenvectors = qm.eigen_decomposition(x)
+    #print(np.mean(traces))
+    x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,(2*n)**2))
+    y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,(2*n)**2))
     return x_real, y_real
 
-
-def build_leaky_relu_model(units, alpha=0.3, optimizer='rmsprop'):
-  """
-  Build a multi-layer non-linear leaky relu regression model using 
-  mean squared error as a loss function.
-
-  Args:
-    units: List of dimensions of the units to be used.
-    optimizer: Optimizer to be used.
-  """
-  model = Sequential()
-  for unit in units:
-    model.add(Dense(
-      units=unit,
-      use_bias=True
-    ))
-    model.add(keras.layers.LeakyReLU(alpha=alpha))
-  model.compile(
-    loss="mse", 
-    optimizer=optimizer,
-    metrics=['accuracy']
-  )
-  return model
-
-def build_leaky_prelu_model(units, optimizer='adam'):
-  """
-  Build a multi-layer non-linear parametrized relu regression model using 
-  mean squared error as a loss function.
-
-  Args:
-    units: List of dimensions of the units to be used.
-    optimizer: Optimizer to be used.
-  """
-  model = Sequential()
-  for unit in units:
-    model.add(Dense(
-      units=unit,
-      use_bias=True
-    ))
-    model.add(keras.layers.PReLU())
-  model.compile(
-    loss="mse", 
-    optimizer=optimizer,
-    metrics=['accuracy']
-  )
-  return model
-
-
-def build_non_linear_model(units, activation='linear', optimizer='adam'):
+def build_non_linear_model(units, activation='linear', optimizer='adagrad'):
   """
   Build a multi-layer non-linear regression model using 
   mean squared error as a loss function.
@@ -96,27 +50,16 @@ def build_non_linear_model(units, activation='linear', optimizer='adam'):
   )
   return model
 
-class BatchPredictionHistory(keras.callbacks.Callback):
-  def __init__(self, x):
-    self.x = x
-    self.prediction = []
-
-  def on_train_begin(self, logs={}):
-    self.prediction = []
-
-  def on_batch_end(self, batch, logs={}):
-    predictions = self.model.predict(self.x)
-    self.prediction.append(predictions)
-
 def train_model(
-    unitary_transform = qm.hadamard, 
-    name='',
-    epochs=3000, 
-    num_samples=10000,
-    batch_size=1000,
-    model=build_non_linear_model(units=[16,32,32,16]),
-    plot_losses=True,
-    data=None
+  unitary_transform = qm.hadamard, 
+  name='',
+  epochs=3000, 
+  num_samples=10000,
+  batch_size=1000,
+  model=build_non_linear_model(units=[16,32,32,16]),
+  plot_losses=True,
+  num_subepochs=1000,
+  data=None
   ):
   """
   Train a model for a given constant unitary transformation. Per default
@@ -132,11 +75,11 @@ def train_model(
     model: Model to be trained.
   """
   if data is None:
-    x,y = generate_data(unitary_transform, num_samples=num_samples)
+    x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=num_samples)
   else:
     x,y = data
   # define call backs for tensorboard visualization etc.
-
+  dim = np.shape(unitary_transform)[0]
   # batch_prediction_history = BatchPredictionHistory(x)
 
   callbacks = []
@@ -145,20 +88,41 @@ def train_model(
     modelcheckpoint_cb = keras.callbacks.ModelCheckpoint(filepath='checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5', period=100)
     callbacks = [tensorboard_cb, modelcheckpoint_cb]
   
-  history = model.fit(
-    x=x,
-    y=y,
-    batch_size=batch_size,
-    epochs=epochs,
-    validation_split=0.05,
-    callbacks=callbacks
-  )
+  mean_traces = []
+  variance_traces = []
+  validation_losses = []
+  training_losses = []
+  sub_epochs = int(epochs/num_subepochs)
 
-  if plot_losses:
+  for _ in range(num_subepochs):
+    y_pred = model.predict(x=x)
+    y_pred = [np.reshape(ys, (2*dim, 2*dim)) for ys in y_pred]
+    y_pred = [tfm.complex_matrix_to_real(ys) for ys in y_pred]
+    eigenvalues, traces, eigenvectors = qm.eigen_decomposition(y_pred)
+    mean_traces.append(np.mean(traces))
+    variance_traces.append(np.var(traces))
+  
+    
+    history = model.fit(
+      x=x,
+      y=y,
+      batch_size=batch_size,
+      epochs=sub_epochs,
+      validation_split=0.05,
+      callbacks=callbacks
+    )
+
     training_loss = history.history['loss']
     validation_loss = history.history['val_loss']
+    training_losses.append(training_loss)
+    validation_losses.append(validation_loss)
+
+  print(mean_traces)
+  print(variance_traces)
+
+  if plot_losses:
     plt.figure()
-    plt.plot(training_loss, label='training loss')
+    plt.plot(training_losses, label='training loss')
     plt.yscale('log')
     plt.xlabel('steps')
     plt.ylabel('loss')
@@ -171,7 +135,7 @@ def train_model(
     print(layer.get_config())
     print(layer.get_weights())
 
-  return model, history
+  return model, training_losses, validation_losses
 
 
 def generate_loss_sweep(
@@ -181,20 +145,22 @@ def generate_loss_sweep(
     num_samples = 10000,
     batch_size = 1000,
     epochs = 300,
+    num_subepochs = 100,
     activation = 'linear'
   ):
   training_losses = []
   for _ in range(num_runs):
-    _, history = train_model(
+    _, training_loss, validation_loss = train_model(
         unitary_transform=gate, 
         name='density matrix - hadamard gate',
         epochs=epochs,
         model=build_non_linear_model(units=units, activation=activation),
         plot_losses=False,
         num_samples=num_samples,
+        num_subepochs=num_subepochs,
         batch_size=batch_size
       )
-    training_losses.append(history.history['loss'])
+    training_losses.append(training_loss)
   return training_losses
 
 def generate_loss_sweep_plot(
@@ -204,9 +170,11 @@ def generate_loss_sweep_plot(
     units = [16,3,16], 
     num_runs = 2,
     num_samples = 10000,
-    epochs = 300
+    epochs = 300,
+    batch_size = 1000,
+    num_subepochs = 100,
   ):
-  training_losses = generate_loss_sweep(gate, units=units, num_runs=num_runs, epochs=epochs)
+  training_losses = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
   plt.figure()
   plt.title(title)
   plt.yscale('log')

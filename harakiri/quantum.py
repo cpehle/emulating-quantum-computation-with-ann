@@ -63,7 +63,7 @@ def nkron(*args):
 p_0 = np.dot(zero, zero.T)
 p_1 = np.dot(one, one.T)
 
-cnot = np.kron(p_0,sigma_0) + np.kron(p_1,sigma_1)
+cnot = 1/2 * (np.kron(p_0,sigma_0) + np.kron(p_1,sigma_1))
 
 def rotate(phi):
   """Implements the R(phi) rotation gate.
@@ -87,3 +87,13 @@ def measure():
   """
   pass
 
+def eigen_decomposition(unitaries):
+  """
+  Compute the eigen values and vectors of an array of (unitary) matrices.
+
+  Args:
+    unitaries (array): Array of unitary matrices.
+  """
+  eigenvalues, eigenvectors = np.linalg.eig(unitaries)
+  traces = np.sum(eigenvalues, axis=1)
+  return eigenvalues, traces, eigenvectors
