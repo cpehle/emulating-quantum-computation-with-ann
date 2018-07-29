@@ -87,6 +87,12 @@ def measure():
   """
   pass
 
+def anti_hermitian_part(m):
+  return 1/2*(m - m.conj().T)
+
+def hermitian_part(m):
+  return 1/2*(m + m.conj().T)
+
 def eigen_decomposition(unitaries):
   """
   Compute the eigen values and vectors of an array of (unitary) matrices.

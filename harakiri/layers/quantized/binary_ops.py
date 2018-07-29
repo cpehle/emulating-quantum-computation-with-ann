@@ -1,3 +1,5 @@
+# For license terms see LICENSE.quantized
+
 import keras.backend as K
 import numpy as np
 

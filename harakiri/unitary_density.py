@@ -19,9 +19,6 @@ def generate_data(u=qm.hadamard, n=2, num_samples=10000):
     """
     x = rnd.density_matrix_ginibre(n=n, m=num_samples)
     y = np.matmul(np.matmul(u, x), u.conj().T)
-    # reshape and flatten data
-    #eigenvalues, traces, eigenvectors = qm.eigen_decomposition(x)
-    #print(np.mean(traces))
     x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,(2*n)**2))
     y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,(2*n)**2))
     return x_real, y_real
@@ -72,7 +69,9 @@ def train_model(
     epochs: Number of epochs to be trained.
     num_samples: Number of training samples to be generated.
     batch_size: Batch size to be used.
-    model: Model to be trained.
+    model: Model to be trained
+    plot_losses (bool): Create a plot of the models loss.
+    num_subepochs (int): Number of training steps to divide it into.
   """
   if data is None:
     x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=num_samples)
@@ -114,8 +113,8 @@ def train_model(
 
     training_loss = history.history['loss']
     validation_loss = history.history['val_loss']
-    training_losses.append(training_loss)
-    validation_losses.append(validation_loss)
+    training_losses += training_loss
+    validation_losses += validation_loss
 
   print(mean_traces)
   print(variance_traces)
@@ -135,7 +134,7 @@ def train_model(
     print(layer.get_config())
     print(layer.get_weights())
 
-  return model, training_losses, validation_losses
+  return model, training_losses, validation_losses, mean_traces, variance_traces
 
 
 def generate_loss_sweep(
@@ -149,8 +148,11 @@ def generate_loss_sweep(
     activation = 'linear'
   ):
   training_losses = []
+  mean_traces = []
+  variance_traces = []
+
   for _ in range(num_runs):
-    _, training_loss, validation_loss = train_model(
+    _, training_loss, validation_loss, mean_trace, variance_trace = train_model(
         unitary_transform=gate, 
         name='density matrix - hadamard gate',
         epochs=epochs,
@@ -161,7 +163,9 @@ def generate_loss_sweep(
         batch_size=batch_size
       )
     training_losses.append(training_loss)
-  return training_losses
+    mean_traces.append(mean_trace)
+    variance_traces.append(variance_trace)
+  return training_losses, mean_traces, variance_traces
 
 def generate_loss_sweep_plot(
     name='density matrix - hadamard gate', 
@@ -174,7 +178,7 @@ def generate_loss_sweep_plot(
     batch_size = 1000,
     num_subepochs = 100,
   ):
-  training_losses = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
+  training_losses, mean_traces, variance_traces = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
   plt.figure()
   plt.title(title)
   plt.yscale('log')
@@ -183,3 +187,12 @@ def generate_loss_sweep_plot(
   for loss in training_losses:
     plt.plot(loss, alpha=0.3, color='b')
   plt.savefig('sweep_{}.png'.format(name))
+
+  plt.figure()
+  plt.title('Average trace')
+  # plt.yscale('log')
+  plt.xlabel('steps')
+  plt.ylabel('trace')
+  for mean_trace in mean_traces:
+    plt.plot(mean_trace, alpha=0.3, color='b')
+  plt.savefig('sweep_traces_{}.png'.format(name))

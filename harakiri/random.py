@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 
 def unitary_haar_measure(n):
   """
@@ -119,6 +120,23 @@ def density_matrix_ginibre_sample(n = 2):
   h_trace = np.trace(h)
   return h / h_trace
 
+def density_matrix_burres_sample(n = 2):
+  """Generate a random density matrix based on the burres metric
+  
+  See https://arxiv.org/pdf/1010.3570.pdf c.f. equation 22
+
+  Args:
+    n (int): Dimension of the space of matrices
+  """
+  s = ginibre_ensemble_sample(n = n)
+  u = unitary_haar_measure(n = n)
+  f = (np.eye(n) + u)
+  f_conj = f.T.conj()
+  g = np.matmul(s, s.conj().T)
+  m = np.matmul(np.matmul(f, g), f_conj)
+  return m/np.trace(m)
+
+
 def density_matrix_ginibre(n = 2, m = 1000):
   """Generate random desnsity matrices based on the ginibre ensemble.
 
@@ -127,3 +145,50 @@ def density_matrix_ginibre(n = 2, m = 1000):
     m (int): Number of samples
   """
   return np.stack([density_matrix_ginibre_sample(n = n) for i in range(m)])
+
+def plot_ginibre_ensemble_eigenvalues(n=4, m=100000, bins=1000):
+  """
+  """
+  matrices = [ginibre_ensemble_sample(n) for _ in range(m)]
+  eigenvalues = np.reshape(np.linalg.eigvals(matrices), n*m)
+  x, y = np.real(eigenvalues), np.imag(eigenvalues)
+  plt.hist2d(x,y,bins=bins)
+
+def plot_density_matrix_eigenvalues(n = 2, m = 1000, bins = 1000):
+  """
+  """
+  matrices = density_matrix_ginibre(n = n, m = m)
+  eigenvalues = np.reshape(np.linalg.eigvals(matrices), n*m)
+  x, y = np.real(eigenvalues), np.imag(eigenvalues)
+  plt.hist2d(x,y,bins=bins)
+
+def plot_eigenvalues(m, bins=1000):
+  """
+  """
+  a,b,_ = np.shape(m)
+  eigenvalues = np.reshape(np.linalg.eigvals(m), a*b)
+  x, y = np.real(eigenvalues), np.imag(eigenvalues)
+  plt.hist2d(x,y,bins=bins)
+  return x,y
+
+
+def probability_simplex_samples(d, n = 1000):
+  """
+  """
+  def sample(d):
+    dist = -np.log(np.random.rand(d))
+    norm = np.sum(dist)
+    return dist/norm
+  return np.array([sample(d) for _ in range(n)])
+
+
+def generate_diagonal_probability_matrices(d,n):
+  """
+  """
+  return [np.diag(v) for v in probability_simplex_samples(d, n)]
+
+def generate_density_matrices_unitary(d, n):
+  m = generate_diagonal_probability_matrices(d=d, n=n)
+  u = unitary_haar_measure(d)
+  return np.matmul(u,m)
+

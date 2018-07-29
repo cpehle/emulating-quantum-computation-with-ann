@@ -92,7 +92,7 @@ def build_non_linear_model(units, activation='linear', optimizer='adam'):
   model.compile(
     loss="mse", 
     optimizer=optimizer,
-    metrics=['accuracy']
+    metrics=[]
   )
   return model
 

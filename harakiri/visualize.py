@@ -65,3 +65,9 @@ def phi_theta(theta, phi, color='red'):
   """
   psi = qm.psi(theta=theta, phi=phi)
   psi(psi, color=color)
+
+
+def eigenvalue(matrices):
+  """
+  Plot the eigenvalues in the complex plane.
+  """
