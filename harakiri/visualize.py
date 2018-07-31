@@ -71,3 +71,15 @@ def eigenvalue(matrices):
   """
   Plot the eigenvalues in the complex plane.
   """
+  np.linalg.eig()
+
+def plot_history(name='', history=None):
+  training_loss = history.history['loss']
+  plt.figure()
+  plt.plot(training_loss, label='training loss')
+  plt.yscale('log')
+  plt.xlabel('steps')
+  plt.ylabel('loss')
+  plt.title('{}'.format(name))
+  plt.legend()
+  plt.savefig('figures/{}.png'.format(name))

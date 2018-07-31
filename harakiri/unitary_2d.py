@@ -1,4 +1,8 @@
 import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+
+plt.rc('text', usetex=True)
 
 from . import quantum as qm
 from . import transform as tfm
@@ -97,6 +101,33 @@ def build_non_linear_model(units, activation='relu', optimizer='adam'):
   )
   return model
 
+def build_non_linear_model_with_dropout(units, activation='relu', optimizer='adam'):
+  """
+  Build a multi-layer non-linear regression model with dropout using 
+  mean squared error as a loss function.
+
+  Args:
+    units: List of dimensions of the units to be used
+    activation: activation function to be used
+    optimizer: optimizer to be used
+  """
+  model = Sequential()
+  for idx, unit in enumerate(units):
+    if idx is not 0:
+      model.add(Dropout(0.2))
+    model.add(Dense(
+      units=unit,
+      use_bias=True,
+      activation=activation
+    ))
+  model.compile(
+    loss="mse", 
+    optimizer=optimizer,
+    metrics=['accuracy']
+  )
+  return model
+
+
 def build_leaky_relu_model(units, optimizer='adam'):
   """
   Build a multi-layer non-linear regression model using 
@@ -149,7 +180,7 @@ def build_non_linear_quantized_model(units, num_bits=4, activation='relu', optim
   return model
 
 def train_model(
-    unitary_transform,
+    unitary_transform=None,
     name='',
     epochs=3000, 
     num_samples=1000,
@@ -246,6 +277,37 @@ def generate_loss_sweep(
       training_losses.append(history.history['loss'])
   return training_losses
 
+def generate_rotate_sequential_training_plot(model=build_non_linear_model(units=[4], activation='linear')):
+  batch_size = 512
+  epochs = 3000
+  rotations = [qm.rotate(phi) for phi in 1/8*np.arange(1,9,1) * np.pi]
+  datasets = [generate_data(rotation, num_samples=1024) for rotation in rotations]
+  model, history = train_model(model=model, data=datasets[0])
+  histories = []
+  histories.append(history)
+  for dataset in datasets[1:]:
+    x,y = dataset
+    history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, validation_split=0.05)
+    histories.append(history)
+
+  plt.figure()
+  plt.yscale('log')
+  plt.xlabel('steps')
+  plt.ylabel('loss')
+
+  # http://matplotlib.org/1.2.1/examples/pylab_examples/show_colormaps.html
+  num_plots = 8
+  colormap = plt.cm.Blues
+  plt.gca().set_color_cycle([colormap(i) for i in np.linspace(0.3, 0.9, num_plots)])
+
+  name = ['1/8', '1/4', '3/8', '1/2', '5/8', '3/4', '7/8', '']
+
+  for idx,history in enumerate(histories):
+    training_loss = history.history['loss']
+    plt.plot(training_loss, label='{} $\pi$'.format(name[idx]))
+  plt.legend()
+  plt.savefig('figures/rotate_sequential.png')
+
 def generate_loss_sweep_plot(
     name='hadamard', 
     title='', 
@@ -322,7 +384,6 @@ def generate_all_plots(num_runs = 5):
   )
 
   # quantized plots
-
   generate_loss_sweep_plot(
     name='hadamard-quantized', 
     title='Hadamard Gate 4Bit-Quantized Linear 8-8-4', 
@@ -389,3 +450,9 @@ def generate_all_plots(num_runs = 5):
     num_samples=10000,
     batch_size=5000
   )
+
+  generate_rotate_sequential_training_plot(model=build_non_linear_model(
+    units=[8,8,4], 
+    optimizer='adagrad', 
+    activation='linear'
+  ))
