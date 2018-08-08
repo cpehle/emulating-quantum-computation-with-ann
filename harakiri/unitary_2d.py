@@ -328,6 +328,84 @@ def generate_loss_sweep_plot(
   sns.tsplot(np.array(training_losses), err_style='unit_traces')
   plt.savefig('sweep_{}.png'.format(name))
 
+def generate_non_linearity_comparison_plot():
+  num_samples = 10000
+  batch_size = 32
+  epochs = 300
+  optimizer = 'adagrad'
+
+  fig, ax = plt.subplots(2, 1)
+  
+  model, history = train_model(
+    unitary_transform=qm.hadamard, 
+    model=build_non_linear_model(units=[4], activation='linear', optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+  )
+  loss_linear = history.history['loss']
+  model, history = train_model(
+    unitary_transform=qm.hadamard, 
+    model=build_non_linear_model(units=[4], activation='elu', optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+    )
+  loss_elu = history.history['loss']
+  model, history = train_model(unitary_transform=qm.hadamard, model=build_leaky_relu_model(units=[4], optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+  )
+  loss_leaky_relu = history.history['loss']
+  
+  ax[0].set_title('4')
+  ax[0].set_yscale('log')
+  ax[0].plot(loss_linear, label='linear')
+  ax[0].plot(loss_elu, label='elu')
+  ax[0].plot(loss_leaky_relu, label='leaky relu')
+  ax[0].legend()
+
+  model, history = train_model(
+    unitary_transform=qm.hadamard, 
+    model=build_non_linear_model(units=[8,8,4], activation='linear', optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+  )
+  loss_linear = history.history['loss']
+  model, history = train_model(
+    unitary_transform=qm.hadamard,
+    model=build_non_linear_model(units=[8,8,4], activation='elu', optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+    )
+  loss_elu = history.history['loss']
+  model, history = train_model(
+    unitary_transform=qm.hadamard, 
+    model=build_leaky_relu_model(units=[8,8,4], optimizer=optimizer),
+    epochs=epochs,
+    batch_size=batch_size,
+    num_samples=num_samples
+  )
+  loss_leaky_relu = history.history['loss']
+  
+  ax[1].set_title('8-8-4')
+  ax[1].set_yscale('log')
+  ax[1].plot(loss_linear, label='linear')
+  ax[1].plot(loss_elu, label='elu')
+  ax[1].plot(loss_leaky_relu, label='leaky relu')
+  ax[1].legend()
+
+  fig.tight_layout()
+  fig.subplots_adjust(top=0.88)
+  fig.savefig('figures/non_linear.png')
+
+
+
+
+
 def generate_all_plots(num_runs = 5):
   #units = [8,8,4]
   #name = 'hadamard_gate'

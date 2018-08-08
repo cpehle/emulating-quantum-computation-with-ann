@@ -63,7 +63,7 @@ def nkron(*args):
 p_0 = np.dot(zero, zero.T)
 p_1 = np.dot(one, one.T)
 
-cnot = 1/2 * (np.kron(p_0,sigma_0) + np.kron(p_1,sigma_1))
+cnot = (np.kron(p_0,sigma_0) + np.kron(p_1,sigma_1))
 
 def rotate(phi):
   """Implements the R(phi) rotation gate.
