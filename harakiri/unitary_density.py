@@ -56,7 +56,8 @@ def train_model(
   model=build_non_linear_model(units=[16,32,32,16]),
   plot_losses=True,
   num_subepochs=1000,
-  data=None
+  data=None,
+  verbose=1,
   ):
   """
   Train a model for a given constant unitary transformation. Per default
@@ -120,6 +121,7 @@ def train_model(
       epochs=sub_epochs,
       validation_split=0.05,
       callbacks=callbacks,
+      verbose=verbose
     )
 
     training_loss = history.history['loss']
@@ -147,8 +149,88 @@ def train_model(
 
   return (model, training_losses, validation_losses, mean_traces, std_traces, mean_hermitian_parts, std_hermitian_parts, mean_anti_hermitian_parts, std_anti_hermitian_parts)
 
-def compose_circuit():
-  pass
+def compose_circuit(num_layers = 2):
+  epochs = 300
+  num_subepochs = 1
+  num_samples = 10000
+  units = [64,16,64]
+  batch_size = 1000
+
+  hadamard_pi_8th, h_loss, _, _, _, _, _, _, _ = train_model(
+    unitary_transform=np.kron(qm.hadamard, qm.rotate(np.pi/8)),
+    name='hadamard_rotate_pi_8th',
+    epochs=epochs,
+    model=build_non_linear_model(units=units, activation='linear'),
+    plot_losses=False,
+    num_samples=num_samples,
+    num_subepochs=num_subepochs,
+    batch_size=batch_size
+  )
+  cnot, cnot_loss, _, _, _, _, _, _, _ = train_model(
+    unitary_transform=qm.cnot,
+    name='cnot',
+    epochs=epochs,
+    model=build_non_linear_model(units=units, activation='linear'),
+    plot_losses=False,
+    num_samples=num_samples,
+    num_subepochs=num_subepochs,
+    batch_size=batch_size
+  )
+  
+  unitary_transform = np.matmul(qm.cnot, np.kron(qm.hadamard, qm.rotate(np.pi/8)))
+  unitary_transform = np.linalg.matrix_power(unitary_transform, num_layers)
+
+  x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=10)
+
+  x_cnot = x
+  for _ in range(num_layers):
+    x_h_r = hadamard_pi_8th.predict(x=x_cnot)
+    x_cnot = cnot.predict(x=x_h_r)
+
+  print(x_cnot)
+  print(y)
+  
+
+
+def generate_bottleneck_sweep():
+  name = 'hadamard'
+  gate = qm.hadamard
+  num_samples = 10000
+  batch_size = 1000
+  epochs = 1000
+  num_subepochs = 1
+  activation = 'linear'
+  bottleneck_dim = np.arange(1,9)
+
+  losses = []
+
+  for dim in bottleneck_dim:
+    print(dim)
+    _, training_loss, validation_loss, mean_trace, std_trace, mean_hermitian_part, std_hermitian_part, mean_anti_hermitian_part, std_anti_hermitian_part = train_model(
+          unitary_transform=gate, 
+          epochs=epochs,
+          model=build_non_linear_model(units=[16,dim,16], activation=activation),
+          plot_losses=False,
+          num_samples=num_samples,
+          num_subepochs=num_subepochs,
+          batch_size=batch_size,
+          verbose=0,
+    )
+    min_loss = np.min(training_loss)
+    print(min_loss)
+    losses.append(min_loss)
+
+  print(losses)
+  fig, axis = plt.subplots(1, 1)
+  axis.set_title('Loss versus bottleneck dimension')
+  axis.set_yscale('log')
+  axis.set_xlabel('bottleneck dimension')
+  axis.set_ylabel('loss')
+  axis.plot(bottleneck_dim, losses)
+
+  fig.tight_layout()
+  fig.subplots_adjust(top=0.88)
+  fig.savefig('bottle_neck_sweep_{}.png'.format(name))
 
 def generate_loss_sweep(
     gate = qm.hadamard,

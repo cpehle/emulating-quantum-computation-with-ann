@@ -80,7 +80,7 @@ def rho(psi):
   Args:
     psi (tensor of shape (2,n))
   """
-  return np.dot(psi, psi.T)
+  return np.dot(psi, psi.conj().T)
 
 def measure():
   """Measure an n-Qbit state. This is non-deterministic.
