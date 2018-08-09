@@ -47,6 +47,17 @@ def build_non_linear_model(units, activation='linear', optimizer='adagrad'):
   )
   return model
 
+class TrainingResult:
+  def __init__(self):
+    self.training_losses = []
+    self.validation_losses = []
+    self.mean_traces = []
+    self.std_traces = []
+    self.mean_anti_hermitian_parts = []
+    self.mean_hermitian_parts = []
+    self.std_hermitian_parts = []
+    self.std_anti_hermitian_parts = []
+
 def train_model(
   unitary_transform = qm.hadamard, 
   name='',
@@ -88,14 +99,7 @@ def train_model(
     modelcheckpoint_cb = keras.callbacks.ModelCheckpoint(filepath='checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5', period=100)
     callbacks = [tensorboard_cb, modelcheckpoint_cb]
   
-  mean_traces = []
-  std_traces = []
-  std_hermitian_parts = []
-  mean_hermitian_parts = []
-  std_anti_hermitian_parts = []
-  mean_anti_hermitian_parts = []
-  validation_losses = []
-  training_losses = []
+  result = TrainingResult()
   sub_epochs = int(epochs/num_subepochs)
 
   for _ in range(num_subepochs):
@@ -107,12 +111,12 @@ def train_model(
     hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in hermitian_part]
     anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in y_pred]
     anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
-    mean_traces.append(np.mean(traces))
-    std_traces.append(np.std(traces))
-    mean_hermitian_parts.append(np.mean(hermitian_part_norm))
-    std_hermitian_parts.append(np.std(hermitian_part_norm))
-    mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
-    std_anti_hermitian_parts.append(np.std(anti_hermitian_part_norm))
+    result.mean_traces.append(np.mean(traces))
+    result.std_traces.append(np.std(traces))
+    result.mean_hermitian_parts.append(np.mean(hermitian_part_norm))
+    result.std_hermitian_parts.append(np.std(hermitian_part_norm))
+    result.mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
+    result.std_anti_hermitian_parts.append(np.std(anti_hermitian_part_norm))
 
     history = model.fit(
       x=x,
@@ -126,15 +130,15 @@ def train_model(
 
     training_loss = history.history['loss']
     validation_loss = history.history['val_loss']
-    training_losses += training_loss
-    validation_losses += validation_loss
+    result.training_losses += training_loss
+    result.validation_losses += validation_loss
 
-  print(mean_traces)
-  print(std_traces)
+  print(result.mean_traces)
+  print(result.std_traces)
 
   if plot_losses:
     plt.figure()
-    plt.plot(training_losses, label='training loss')
+    plt.plot(result.training_losses, label='training loss')
     plt.yscale('log')
     plt.xlabel('steps')
     plt.ylabel('loss')
@@ -147,7 +151,7 @@ def train_model(
     print(layer.get_config())
     print(layer.get_weights())
 
-  return (model, training_losses, validation_losses, mean_traces, std_traces, mean_hermitian_parts, std_hermitian_parts, mean_anti_hermitian_parts, std_anti_hermitian_parts)
+  return model, result
 
 def compose_circuit(num_layers = 2):
   epochs = 300
@@ -156,7 +160,7 @@ def compose_circuit(num_layers = 2):
   units = [64,16,64]
   batch_size = 1000
 
-  hadamard_pi_8th, h_loss, _, _, _, _, _, _, _ = train_model(
+  hadamard_pi_8th, result = train_model(
     unitary_transform=np.kron(qm.hadamard, qm.rotate(np.pi/8)),
     name='hadamard_rotate_pi_8th',
     epochs=epochs,
@@ -166,7 +170,7 @@ def compose_circuit(num_layers = 2):
     num_subepochs=num_subepochs,
     batch_size=batch_size
   )
-  cnot, cnot_loss, _, _, _, _, _, _, _ = train_model(
+  cnot, result = train_model(
     unitary_transform=qm.cnot,
     name='cnot',
     epochs=epochs,
@@ -187,12 +191,7 @@ def compose_circuit(num_layers = 2):
     x_h_r = hadamard_pi_8th.predict(x=x_cnot)
     x_cnot = cnot.predict(x=x_h_r)
 
-  print(x_cnot)
-  print(y)
-  
-
-
-def generate_bottleneck_sweep(name = 'hadamard', gate = qm.hadamard):
+def generate_bottleneck_sweep(name='hadamard', gate=qm.hadamard):
   num_samples = 10000
   batch_size = 1000
   epochs = 1000
@@ -203,7 +202,7 @@ def generate_bottleneck_sweep(name = 'hadamard', gate = qm.hadamard):
   losses = []
 
   for dim in bottleneck_dim:
-    _, training_loss, validation_loss, mean_trace, std_trace, mean_hermitian_part, std_hermitian_part, mean_anti_hermitian_part, std_anti_hermitian_part = train_model(
+    _, result = train_model(
           unitary_transform=gate, 
           epochs=epochs,
           model=build_non_linear_model(units=[16,dim,16], activation=activation),
@@ -213,7 +212,7 @@ def generate_bottleneck_sweep(name = 'hadamard', gate = qm.hadamard):
           batch_size=batch_size,
           verbose=0,
     )
-    min_loss = np.min(training_loss)
+    min_loss = np.min(result.training_losses)
     losses.append(min_loss)
 
   fig, axis = plt.subplots(1, 1)
@@ -226,6 +225,7 @@ def generate_bottleneck_sweep(name = 'hadamard', gate = qm.hadamard):
   fig.subplots_adjust(top=0.88)
   fig.savefig('bottle_neck_sweep_{}.png'.format(name))
 
+
 def generate_loss_sweep(
     gate = qm.hadamard,
     units = [16,3,16],
@@ -236,16 +236,9 @@ def generate_loss_sweep(
     num_subepochs = 100,
     activation = 'linear'
   ):
-  training_losses = []
-  mean_traces = []
-  std_traces = []
-  mean_anti_hermitian_parts = []
-  mean_hermitian_parts = []
-  std_hermitian_parts = []
-  std_anti_hermitian_parts = []
-
+  results = []
   for _ in range(num_runs):
-    _, training_loss, validation_loss, mean_trace, std_trace, mean_hermitian_part, std_hermitian_part, mean_anti_hermitian_part, std_anti_hermitian_part = train_model(
+    _, result = train_model(
         unitary_transform=gate, 
         name='density matrix - hadamard gate',
         epochs=epochs,
@@ -255,16 +248,8 @@ def generate_loss_sweep(
         num_subepochs=num_subepochs,
         batch_size=batch_size
       )
-    training_losses.append(training_loss)
-    mean_traces.append(mean_trace)
-    std_traces.append(std_trace)
-    mean_anti_hermitian_parts.append(mean_anti_hermitian_part)
-    std_anti_hermitian_parts.append(std_anti_hermitian_part)
-    mean_hermitian_parts.append(mean_hermitian_part)
-    std_hermitian_parts.append(std_hermitian_part)
-
-
-  return training_losses, mean_traces, std_traces, mean_hermitian_parts, std_hermitian_parts, mean_anti_hermitian_parts, std_hermitian_parts
+    results.append(result)
+  return results
 
 def generate_loss_sweep_plot(
     name='density matrix - hadamard gate', 
@@ -277,30 +262,32 @@ def generate_loss_sweep_plot(
     batch_size = 1000,
     num_subepochs = 100,
   ):
-  training_losses, mean_traces, std_traces, mean_hermitian_parts, std_hermitian_parts, mean_anti_hermitian_parts, std_anti_hermitian_parts = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
+  results = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
 
   fig, axis = plt.subplots(3, 1)
   axis[0].set_title('Training progress')
   axis[0].set_yscale('log')
   axis[0].set_xlabel('steps')
   axis[0].set_ylabel('loss')
-  for loss in training_losses:
-    axis[0].plot(loss, alpha=0.3, color='b')
+  for r in results:
+    axis[0].plot(r.training_losses, alpha=0.3, color='b')
+
+  steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
 
   axis[1].set_title('Average trace')
   axis[1].set_xlabel('steps')
   axis[1].set_ylabel('trace')
-  for idx, mean_trace in enumerate(mean_traces):
-    axis[1].errorbar(x=int(epochs/num_subepochs)*np.arange(0,num_subepochs), y=mean_trace, yerr=std_traces[idx], alpha=0.1, color='b')
-  
+  for r in results:
+    axis[1].errorbar(x=steps, y=r.mean_traces, yerr=r.std_traces, alpha=0.1, color='b')
+
   axis[2].set_title('Average Norm Hermitian / Anti-Hermitian part')
   axis[2].set_xlabel('steps')
   axis[2].set_ylabel('norm')
-  #axis[2].set_yscale('log')
-  for idx, mean_hermitian_part in enumerate(mean_hermitian_parts):
-    axis[2].errorbar(x=int(epochs/num_subepochs)*np.arange(0,num_subepochs), y=mean_hermitian_part, yerr=std_hermitian_parts[idx], alpha=0.1, color='b')
-  for idx, mean_anti_hermitian_part in enumerate(mean_anti_hermitian_parts):
-    axis[2].errorbar(x=int(epochs/num_subepochs)*np.arange(0,num_subepochs), y=mean_anti_hermitian_part, yerr=std_anti_hermitian_parts[idx], alpha=0.1, color='r')
+
+  for r in results:
+    axis[2].errorbar(x=steps, y=r.mean_hermitian_parts, yerr=r.std_hermitian_parts, alpha=0.1, color='b')
+  for r in results:
+    axis[2].errorbar(x=steps, y=r.mean_anti_hermitian_parts, yerr=r.std_anti_hermitian_parts, alpha=0.1, color='r')
 
   fig.tight_layout()
   fig.subplots_adjust(top=0.88)
