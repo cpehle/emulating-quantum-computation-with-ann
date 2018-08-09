@@ -192,9 +192,7 @@ def compose_circuit(num_layers = 2):
   
 
 
-def generate_bottleneck_sweep():
-  name = 'hadamard'
-  gate = qm.hadamard
+def generate_bottleneck_sweep(name = 'hadamard', gate = qm.hadamard):
   num_samples = 10000
   batch_size = 1000
   epochs = 1000
@@ -205,7 +203,6 @@ def generate_bottleneck_sweep():
   losses = []
 
   for dim in bottleneck_dim:
-    print(dim)
     _, training_loss, validation_loss, mean_trace, std_trace, mean_hermitian_part, std_hermitian_part, mean_anti_hermitian_part, std_anti_hermitian_part = train_model(
           unitary_transform=gate, 
           epochs=epochs,
@@ -217,17 +214,14 @@ def generate_bottleneck_sweep():
           verbose=0,
     )
     min_loss = np.min(training_loss)
-    print(min_loss)
     losses.append(min_loss)
 
-  print(losses)
   fig, axis = plt.subplots(1, 1)
   axis.set_title('Loss versus bottleneck dimension')
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
   axis.plot(bottleneck_dim, losses)
-
   fig.tight_layout()
   fig.subplots_adjust(top=0.88)
   fig.savefig('bottle_neck_sweep_{}.png'.format(name))
