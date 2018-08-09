@@ -89,16 +89,9 @@ def train_model(
     x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=num_samples)
   else:
     x,y = data
-  # define call backs for tensorboard visualization etc.
   dim = np.shape(unitary_transform)[0]
-  # batch_prediction_history = BatchPredictionHistory(x)
 
   callbacks = []
-  if False:
-    tensorboard_cb = keras.callbacks.TensorBoard(log_dir='logs/', histogram_freq=100)
-    modelcheckpoint_cb = keras.callbacks.ModelCheckpoint(filepath='checkpoints/weights.{epoch:02d}-{val_loss:.2f}.hdf5', period=100)
-    callbacks = [tensorboard_cb, modelcheckpoint_cb]
-  
   result = TrainingResult()
   sub_epochs = int(epochs/num_subepochs)
 
