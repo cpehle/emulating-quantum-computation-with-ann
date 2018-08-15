@@ -1,7 +1,5 @@
 import numpy as np
-import seaborn as sns
 import matplotlib.pyplot as plt
-sns.set()
 
 from . import random as rnd
 from . import quantum as qm

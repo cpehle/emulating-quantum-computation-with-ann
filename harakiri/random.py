@@ -120,6 +120,17 @@ def density_matrix_ginibre_sample(n = 2):
   h_trace = np.trace(h)
   return h / h_trace
 
+def density_matrix_and_ginibre_sample(n = 2):
+  """Generate random desnsity matrix based on the ginibre ensemble.
+
+  Args:
+    n (int): Dimension of the space of matrices
+  """
+  s = ginibre_ensemble_sample(n = n)
+  h = np.matmul(s, s.conj().T)
+  h_trace = np.trace(h)
+  return np.stack([h / h_trace, s]).T
+
 def density_matrix_burres_sample(n = 2):
   """Generate a random density matrix based on the burres metric
   
@@ -136,7 +147,6 @@ def density_matrix_burres_sample(n = 2):
   m = np.matmul(np.matmul(f, g), f_conj)
   return m/np.trace(m)
 
-
 def density_matrix_ginibre(n = 2, m = 1000):
   """Generate random desnsity matrices based on the ginibre ensemble.
 
@@ -145,6 +155,15 @@ def density_matrix_ginibre(n = 2, m = 1000):
     m (int): Number of samples
   """
   return np.stack([density_matrix_ginibre_sample(n = n) for i in range(m)])
+
+def density_matrix_and_ginibre(n = 2, m = 1000):
+  """Generate random desnsity matrices based on the ginibre ensemble.
+
+  Args:
+    n (int): Dimension of the space of matrices
+    m (int): Number of samples
+  """
+  return np.stack([density_matrix_and_ginibre_sample(n = n) for i in range(m)])
 
 def plot_ginibre_ensemble_eigenvalues(n=4, m=100000, bins=1000):
   """

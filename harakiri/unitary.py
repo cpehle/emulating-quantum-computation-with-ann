@@ -164,13 +164,12 @@ def generate_sweep_plots(error_style='unit_traces', num_runs=100, quantize=False
     training_losses.append(history.history['loss'])
 
   import matplotlib.pyplot as plt
-  import seaborn as sns
   plt.figure()
   plt.title('CNOT Gate Linear 4Bit-Quantized 16-16-8')
   plt.yscale('log')
   plt.xlabel('steps')
   plt.ylabel('loss')
-  sns.tsplot(np.array(training_losses), err_style=error_style)
+ # sns.tsplot(np.array(training_losses), err_style=error_style)
   plt.savefig('sweep_{}.png'.format('cnot'))
 
 if __name__ == '__main__':

@@ -1,14 +1,19 @@
 import numpy as np
+import pickle
 
 from . import random as rnd
 from . import quantum as qm
 from . import transform as tfm
+from . import figures
 
 import keras
 from keras.layers.core import Dense, Activation, Dropout
 from keras.models import Sequential
 
 import matplotlib.pyplot as plt
+import matplotlib
+
+normal_figure_width, wide_figure_width = figures.set_plot_parameters()
 
 def generate_data(u=qm.hadamard, n=2, num_samples=10000):
     """
@@ -126,9 +131,6 @@ def train_model(
     result.training_losses += training_loss
     result.validation_losses += validation_loss
 
-  print(result.mean_traces)
-  print(result.std_traces)
-
   if plot_losses:
     plt.figure()
     plt.plot(result.training_losses, label='training loss')
@@ -140,30 +142,15 @@ def train_model(
     plt.savefig('figures/{}.png'.format(name))
     plt.show()
 
-  for layer in model.layers:
-    print(layer.get_config())
-    print(layer.get_weights())
-
   return model, result
 
-def compose_circuit(num_layers = 2):
-  epochs = 300
+def quantumness():
+  epochs = 3000
   num_subepochs = 1
   num_samples = 10000
-  units = [64,16,64]
+  units = [64,15,64]
   batch_size = 1000
-
-  hadamard_pi_8th, result = train_model(
-    unitary_transform=np.kron(qm.hadamard, qm.rotate(np.pi/8)),
-    name='hadamard_rotate_pi_8th',
-    epochs=epochs,
-    model=build_non_linear_model(units=units, activation='linear'),
-    plot_losses=False,
-    num_samples=num_samples,
-    num_subepochs=num_subepochs,
-    batch_size=batch_size
-  )
-  cnot, result = train_model(
+  cnot, _ = train_model(
     unitary_transform=qm.cnot,
     name='cnot',
     epochs=epochs,
@@ -173,50 +160,127 @@ def compose_circuit(num_layers = 2):
     num_subepochs=num_subepochs,
     batch_size=batch_size
   )
-  
-  unitary_transform = np.matmul(qm.cnot, np.kron(qm.hadamard, qm.rotate(np.pi/8)))
-  unitary_transform = np.linalg.matrix_power(unitary_transform, num_layers)
+  num_test_samples = 10000
+  dim = 4
+  s = np.stack([rnd.ginibre_ensemble_sample(n = 4) for _ in range(num_test_samples)])
+  s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
+  s_y = cnot.predict(x=s_real)
+  s_m = [np.reshape(ys, (2*dim, 2*dim)) for ys in s_y]
+  s_m_pred = [tfm.real_matrix_to_complex(ys) for ys in s_m]
+  eigenvalues, traces, eigenvectors = qm.eigen_decomposition([tfm.real_matrix_to_complex(ys) for ys in s_m])
+  anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in s_m_pred]
+  anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
+  print(np.mean(traces))
+  print(np.std(traces))
+  print(np.mean(anti_hermitian_part_norm))
+  print(np.std(anti_hermitian_part_norm))
 
-  x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=10)
+def compose_circuit():
+  epochs = 2000
+  num_subepochs = 1
+  num_samples = 10000
+  units = [64,16,64]
+  batch_size = 1000
 
-  x_cnot = x
-  for _ in range(num_layers):
-    x_h_r = hadamard_pi_8th.predict(x=x_cnot)
-    x_cnot = cnot.predict(x=x_h_r)
+  hadamard_pi_8th, _ = train_model(
+    unitary_transform=np.kron(qm.hadamard, qm.rotate(np.pi/8)),
+    name='hadamard_rotate_pi_8th',
+    epochs=epochs,
+    model=build_non_linear_model(units=units, activation='linear'),
+    plot_losses=False,
+    num_samples=num_samples,
+    num_subepochs=num_subepochs,
+    batch_size=batch_size
+  )
+  cnot, _ = train_model(
+    unitary_transform=qm.cnot,
+    name='cnot',
+    epochs=epochs,
+    model=build_non_linear_model(units=units, activation='linear'),
+    plot_losses=False,
+    num_samples=num_samples,
+    num_subepochs=num_subepochs,
+    batch_size=batch_size
+  )
 
-def generate_bottleneck_sweep(name='hadamard', gate=qm.hadamard):
+  num_layers = 2**np.arange(1,16)
+  errors = []
+  dim = 32
+
+  for layers in num_layers:
+    unitary_transform = np.matmul(qm.cnot, np.kron(qm.hadamard, qm.rotate(np.pi/8)))
+    unitary_transform = np.linalg.matrix_power(unitary_transform, layers)
+    x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=10)
+    x_cnot = x
+    for _ in range(layers):
+      x_h_r = hadamard_pi_8th.predict(x=x_cnot)
+      x_cnot = cnot.predict(x=x_h_r)
+    msq_err = (1.0/num_samples)*np.sum((x_cnot - y)**2)
+    # convert back to complex representation
+    y = [np.reshape(ys, (2*dim, 2*dim)) for ys in y]
+    y = [tfm.real_matrix_to_complex(ys) for ys in y]
+    x_cnot = [np.reshape(xs, (2*dim, 2*dim)) for xs in x_cnot]
+    x_cnot = [tfm.real_matrix_to_complex(xs) for xs in x_cnot]
+    y_0 = qm.partial_trace(y, tensor_dim=[2,2], index=0)
+    x_0 = qm.partial_trace(x_cnot, tensor_dim=[2,2], index=0)
+    y_0_s = qm.stereographic_projection(qm.bloch_vector(y_0))
+    x_0_s = qm.stereographic_projection(qm.bloch_vector(x_0))
+    # store the results
+    errors.append(msq_err)
+
+  return num_layers, errors
+
+def plot_compose_circuit():
+  x,y = compose_circuit()
+  fig,axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
+  axis.set_title('Mean squared error vs number of layers')
+  axis.set_xscale('log')
+  axis.set_yscale('log')
+  axis.set_ylabel('error')
+  axis.set_xlabel('number of layers')
+  axis.plot(x,y)
+  fig.savefig('compose_circuit.pdf')
+
+
+computation_errors = [1.718235700650654e-14, 2.728917872170883e-14, 3.4225502557892086e-14, 1.2396163982650348e-13, 4.996448279934695e-13, 1.8091896260771886e-12, 6.413142939642376e-12, 2.1435518942870975e-11, 9.826842236203848e-11, 6.277303881633471e-10, 2.175825635845086e-09, 6.7780966942311115e-09, 3.627724788342358e-08]
+
+def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bottleneck_dim = np.arange(1,9)):
   num_samples = 10000
   batch_size = 1000
   epochs = 1000
   num_subepochs = 1
   activation = 'linear'
-  bottleneck_dim = np.arange(1,9)
 
-  losses = []
+  epoch_choices = [500,1000,3000]
+  loss_results = []
+  for epochs in epoch_choices:
+    losses = []
+    for dim in bottleneck_dim:
+      _, result = train_model(
+            unitary_transform=gate, 
+            epochs=epochs,
+            model=build_non_linear_model(units=[io_dim,dim,io_dim], activation=activation),
+            plot_losses=False,
+            num_samples=num_samples,
+            num_subepochs=num_subepochs,
+            batch_size=batch_size,
+            verbose=0,
+      )
+      min_loss = np.min(result.training_losses)
+      losses.append(min_loss)
+    loss_results.append(losses)
 
-  for dim in bottleneck_dim:
-    _, result = train_model(
-          unitary_transform=gate, 
-          epochs=epochs,
-          model=build_non_linear_model(units=[16,dim,16], activation=activation),
-          plot_losses=False,
-          num_samples=num_samples,
-          num_subepochs=num_subepochs,
-          batch_size=batch_size,
-          verbose=0,
-    )
-    min_loss = np.min(result.training_losses)
-    losses.append(min_loss)
-
-  fig, axis = plt.subplots(1, 1)
-  axis.set_title('Loss versus bottleneck dimension')
+  fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
+  # axis.set_title('Loss versus bottleneck dimension')
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
-  axis.plot(bottleneck_dim, losses)
+  for idx, losses in enumerate(loss_results):
+    axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]), marker='.')
+  axis.legend()
+  axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
   fig.tight_layout()
-  fig.subplots_adjust(top=0.88)
-  fig.savefig('bottle_neck_sweep_{}.png'.format(name))
+  fig.savefig('bottle_neck_sweep_{}.pdf'.format(name))
 
 
 def generate_loss_sweep(
@@ -255,15 +319,24 @@ def generate_loss_sweep_plot(
     batch_size = 1000,
     num_subepochs = 100,
   ):
-  results = generate_loss_sweep(gate, units=units, batch_size=batch_size, num_runs=num_runs, epochs=epochs, num_subepochs=num_subepochs)
+  results = generate_loss_sweep(
+    gate, 
+    units=units, 
+    batch_size=batch_size, 
+    num_runs=num_runs, 
+    epochs=epochs, 
+    num_subepochs=num_subepochs
+  )
+  pickle.dump(results, open('results/sweep_{}_{}_{}.p'.format(batch_size, num_runs, epochs) , 'wb'))
+  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
 
-  fig, axis = plt.subplots(3, 1)
-  axis[0].set_title('Training progress')
+  fig, axis = plt.subplots(3, 1, figsize=(normal_figure_width,3*0.5*normal_figure_width))
+  # axis[0].set_title('Training progress')
   axis[0].set_yscale('log')
   axis[0].set_xlabel('steps')
   axis[0].set_ylabel('loss')
   for r in results:
-    axis[0].plot(r.training_losses, alpha=0.3, color='b')
+    axis[0].plot(r.training_losses)
 
   steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
 
@@ -271,23 +344,28 @@ def generate_loss_sweep_plot(
   axis[1].set_xlabel('steps')
   axis[1].set_ylabel('trace')
   for r in results:
-    axis[1].errorbar(x=steps, y=r.mean_traces, yerr=r.std_traces, alpha=0.1, color='b')
+    axis[1].errorbar(x=steps, y=r.mean_traces, yerr=r.std_traces)
 
-  axis[2].set_title('Average Norm Hermitian / Anti-Hermitian part')
+  axis[2].set_title('Average norm anti-hermitian part')
   axis[2].set_xlabel('steps')
   axis[2].set_ylabel('norm')
+  axis[2].set_yscale('log')
 
-  for r in results:
-    axis[2].errorbar(x=steps, y=r.mean_hermitian_parts, yerr=r.std_hermitian_parts, alpha=0.1, color='b')
-  for r in results:
-    axis[2].errorbar(x=steps, y=r.mean_anti_hermitian_parts, yerr=r.std_anti_hermitian_parts, alpha=0.1, color='r')
+  for idx, r in enumerate(results):
+    axis[2].errorbar(x=steps, y=r.mean_anti_hermitian_parts, yerr=r.std_anti_hermitian_parts, linestyle=linestyle[idx])
 
   fig.tight_layout()
-  fig.subplots_adjust(top=0.88)
-  fig.savefig('sweep_{}.png'.format(name))
+  fig.savefig('sweep_{}.pdf'.format(name))
+  return results
 
 def generate_plots():
-  print("Hadamard")
-  generate_loss_sweep_plot(title='', gate=qm.hadamard, units= [16,3,16], epochs=3000, num_subepochs=100)
+  # 
+  #print("Hadamard")
+  #generate_loss_sweep_plot(title='', gate=qm.hadamard, units= [16,3,16], epochs=3000, num_subepochs=300)
+  #
   print("CNOT")
-  generate_loss_sweep_plot(title='', gate=qm.cnot, units=[64,16,64], epochs=3000, num_subepochs=100)
+  generate_loss_sweep_plot(name='cnot', gate=qm.cnot, units=[64,15,64], epochs=1000, num_subepochs=100, num_runs=1)
+  # 
+  print("Bottleneck Sweep")
+  generate_bottleneck_sweep(name='cnot', io_dim=64, gate=qm.cnot, bottleneck_dim=np.arange(12,20))
+  

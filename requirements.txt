@@ -2,4 +2,3 @@ keras
 tensorflow
 matplotlib
 nose
-seaborn

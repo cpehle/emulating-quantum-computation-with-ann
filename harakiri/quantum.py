@@ -103,3 +103,26 @@ def eigen_decomposition(unitaries):
   eigenvalues, eigenvectors = np.linalg.eig(unitaries)
   traces = np.sum(eigenvalues, axis=1)
   return eigenvalues, traces, eigenvectors
+
+def partial_trace(matrix, tensor_dim=[2,2], index=0):
+  shape = tensor_dim + tensor_dim
+  tensor = matrix.reshape(shape)
+  return np.trace(tensor, axis1=index, axis2=index+len(tensor_dim))
+
+def bloch_vector(rho):
+  """
+  Compute the bloch vector from a given vector of 2-state density matrix.
+  """
+  u = 2*np.real(rho[:,0,1])
+  v = 2*np.imag(rho[:,1,0])
+  w = rho[:,0,0] - rho[:,1,1]
+  return np.vstack([u,v,w]).T
+
+def stereographic_projection(coordinates):
+  u = np.real(coordinates)[:,0]
+  v = np.real(coordinates)[:,1]
+  w = np.real(coordinates)[:,2]
+  w_inv = 1/(1 - w)
+  x = w_inv * u
+  y = w_inv * v
+  return np.vstack([x,y]).T
