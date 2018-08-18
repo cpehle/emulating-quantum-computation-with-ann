@@ -148,32 +148,56 @@ def quantumness():
   epochs = 3000
   num_subepochs = 1
   num_samples = 10000
-  units = [64,15,64]
+  
+  dimensions = np.arange(12,21)
   batch_size = 1000
-  cnot, _ = train_model(
-    unitary_transform=qm.cnot,
-    name='cnot',
-    epochs=epochs,
-    model=build_non_linear_model(units=units, activation='linear'),
-    plot_losses=False,
-    num_samples=num_samples,
-    num_subepochs=num_subepochs,
-    batch_size=batch_size
-  )
+
+  traces_result = []
+  traces_std_result = []
+  anti_hermitian_part_norm_result = []
+  anti_hermitian_part_norm_std_result = []
+
+  # test data is held constant over the different bottleneck dimensions
   num_test_samples = 10000
   dim = 4
   s = np.stack([rnd.ginibre_ensemble_sample(n = 4) for _ in range(num_test_samples)])
   s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
-  s_y = cnot.predict(x=s_real)
-  s_m = [np.reshape(ys, (2*dim, 2*dim)) for ys in s_y]
-  s_m_pred = [tfm.real_matrix_to_complex(ys) for ys in s_m]
-  eigenvalues, traces, eigenvectors = qm.eigen_decomposition([tfm.real_matrix_to_complex(ys) for ys in s_m])
-  anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in s_m_pred]
-  anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
-  print(np.mean(traces))
-  print(np.std(traces))
-  print(np.mean(anti_hermitian_part_norm))
-  print(np.std(anti_hermitian_part_norm))
+
+  for d in dimensions:
+    units = [64,d,64]
+    cnot, _ = train_model(
+      unitary_transform=qm.cnot,
+      name='cnot',
+      epochs=epochs,
+      model=build_non_linear_model(units=units, activation='linear'),
+      plot_losses=False,
+      num_samples=num_samples,
+      num_subepochs=num_subepochs,
+      batch_size=batch_size
+    )
+    s_y = cnot.predict(x=s_real)
+    s_m = [np.reshape(ys, (2*dim, 2*dim)) for ys in s_y]
+    s_m_pred = [tfm.real_matrix_to_complex(ys) for ys in s_m]
+    eigenvalues, traces, eigenvectors = qm.eigen_decomposition([tfm.real_matrix_to_complex(ys) for ys in s_m])
+    anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in s_m_pred]
+    anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
+    traces_res = np.abs(np.real(1 - traces))
+    traces_result.append(np.mean(traces_res))
+    traces_std_result.append(np.std(traces_res))
+    anti_hermitian_part_norm_result.append(np.mean(anti_hermitian_part_norm))
+    anti_hermitian_part_norm_std_result.append(np.std(anti_hermitian_part_norm))
+
+  fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
+  axis.set_yscale('log')
+  axis.set_xlabel('bottleneck dimension')
+  
+  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
+  axis.plot(dimensions, traces_result, label='mean residual trace', linestyle=linestyle[0])
+  axis.plot(dimensions, anti_hermitian_part_norm_result, label='mean anti-herm. norm', linestyle=linestyle[1])
+  axis.legend()
+  axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+  fig.tight_layout()
+  fig.savefig('quantumness.pdf')
 
 def compose_circuit():
   epochs = 2000
@@ -239,6 +263,7 @@ def plot_compose_circuit():
   axis.set_ylabel('error')
   axis.set_xlabel('number of layers')
   axis.plot(x,y)
+  fig.tight_layout()
   fig.savefig('compose_circuit.pdf')
 
 
@@ -251,7 +276,7 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
   num_subepochs = 1
   activation = 'linear'
 
-  epoch_choices = [500,1000,3000]
+  epoch_choices = [1000,3000,10000]
   loss_results = []
   for epochs in epoch_choices:
     losses = []
@@ -276,7 +301,7 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
   for idx, losses in enumerate(loss_results):
-    axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]), marker='.')
+    axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]))
   axis.legend()
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
   fig.tight_layout()
@@ -330,42 +355,44 @@ def generate_loss_sweep_plot(
   pickle.dump(results, open('results/sweep_{}_{}_{}.p'.format(batch_size, num_runs, epochs) , 'wb'))
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
 
-  fig, axis = plt.subplots(3, 1, figsize=(normal_figure_width,3*0.5*normal_figure_width))
-  # axis[0].set_title('Training progress')
+  fig, axis = plt.subplots(5, 1, sharex=True, figsize=(normal_figure_width,5*0.5*normal_figure_width))
+  fig.subplots_adjust(hspace=0)
   axis[0].set_yscale('log')
-  axis[0].set_xlabel('steps')
   axis[0].set_ylabel('loss')
   for r in results:
     axis[0].plot(r.training_losses)
 
   steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
 
-  axis[1].set_title('Average trace')
-  axis[1].set_xlabel('steps')
-  axis[1].set_ylabel('trace')
-  for r in results:
-    axis[1].errorbar(x=steps, y=r.mean_traces, yerr=r.std_traces)
+  axis[1].set_ylabel('avg. trace')
+  axis[1].set_yscale('log')
 
-  axis[2].set_title('Average norm anti-hermitian part')
-  axis[2].set_xlabel('steps')
-  axis[2].set_ylabel('norm')
+  for r in results:
+    axis[1].plot(steps, r.mean_traces)
+
+  axis[2].set_ylabel('std. trace')
   axis[2].set_yscale('log')
 
+  for r in results:
+    axis[2].plot(steps, r.std_traces)
+
+  axis[3].set_ylabel('avg. norm')
+  axis[3].set_yscale('log')
+
   for idx, r in enumerate(results):
-    axis[2].errorbar(x=steps, y=r.mean_anti_hermitian_parts, yerr=r.std_anti_hermitian_parts, linestyle=linestyle[idx])
+    axis[3].plot(steps, r.mean_anti_hermitian_parts)
+
+  axis[4].set_xlabel('epoch')
+  axis[4].set_ylabel('std. norm')
+  axis[4].set_yscale('log')
+
+  for idx, r in enumerate(results):
+    axis[4].plot(steps, r.std_anti_hermitian_parts) # , linestyle=linestyle[idx])
 
   fig.tight_layout()
   fig.savefig('sweep_{}.pdf'.format(name))
   return results
 
 def generate_plots():
-  # 
-  #print("Hadamard")
-  #generate_loss_sweep_plot(title='', gate=qm.hadamard, units= [16,3,16], epochs=3000, num_subepochs=300)
-  #
-  print("CNOT")
   generate_loss_sweep_plot(name='cnot', gate=qm.cnot, units=[64,15,64], epochs=1000, num_subepochs=100, num_runs=1)
-  # 
-  print("Bottleneck Sweep")
   generate_bottleneck_sweep(name='cnot', io_dim=64, gate=qm.cnot, bottleneck_dim=np.arange(12,20))
-  
