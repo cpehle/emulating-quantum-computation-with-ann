@@ -1,6 +1,8 @@
 import numpy as np
 import pickle
 
+from pathlib import Path
+
 from . import random as rnd
 from . import quantum as qm
 from . import transform as tfm
@@ -62,6 +64,31 @@ class TrainingResult:
     self.mean_hermitian_parts = []
     self.std_hermitian_parts = []
     self.std_anti_hermitian_parts = []
+    self.min_anti_hermitian_parts = []
+    self.max_anti_hermitian_parts = []
+    self.max_traces = []
+    self.min_traces = []
+
+def analysis(result, y_pred, dim):
+  """
+  """
+  y_pred = [np.reshape(ys, (2*dim, 2*dim)) for ys in y_pred]
+  y_pred = [tfm.real_matrix_to_complex(ys) for ys in y_pred]
+  eigenvalues, traces, eigenvectors = qm.eigen_decomposition(y_pred)
+  hermitian_part = [qm.hermitian_part(ys) for ys in y_pred]
+  hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in hermitian_part]
+  anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in y_pred]
+  anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
+  result.mean_traces.append(np.mean(traces))
+  result.std_traces.append(np.std(traces))
+  result.min_traces.append(np.min(traces))
+  result.max_traces.append(np.max(traces))
+  result.mean_hermitian_parts.append(np.mean(hermitian_part_norm))
+  result.std_hermitian_parts.append(np.std(hermitian_part_norm))
+  result.mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
+  result.min_anti_hermitian_parts.append(np.min(anti_hermitian_part_norm))
+  result.max_anti_hermitian_parts.append(np.max(anti_hermitian_part_norm))
+  result.std_anti_hermitian_parts.append(np.std(anti_hermitian_part_norm))
 
 def train_model(
   unitary_transform = qm.hadamard, 
@@ -102,20 +129,7 @@ def train_model(
 
   for _ in range(num_subepochs):
     y_pred = model.predict(x=x)
-    y_pred = [np.reshape(ys, (2*dim, 2*dim)) for ys in y_pred]
-    y_pred = [tfm.real_matrix_to_complex(ys) for ys in y_pred]
-    eigenvalues, traces, eigenvectors = qm.eigen_decomposition(y_pred)
-    hermitian_part = [qm.hermitian_part(ys) for ys in y_pred]
-    hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in hermitian_part]
-    anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in y_pred]
-    anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
-    result.mean_traces.append(np.mean(traces))
-    result.std_traces.append(np.std(traces))
-    result.mean_hermitian_parts.append(np.mean(hermitian_part_norm))
-    result.std_hermitian_parts.append(np.std(hermitian_part_norm))
-    result.mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
-    result.std_anti_hermitian_parts.append(np.std(anti_hermitian_part_norm))
-
+    analysis(result, y_pred, dim)
     history = model.fit(
       x=x,
       y=y,
@@ -126,10 +140,8 @@ def train_model(
       verbose=verbose
     )
 
-    training_loss = history.history['loss']
-    validation_loss = history.history['val_loss']
-    result.training_losses += training_loss
-    result.validation_losses += validation_loss
+    result.training_losses += history.history['loss']
+    result.validation_losses += history.history['val_loss']
 
   if plot_losses:
     plt.figure()
@@ -151,6 +163,8 @@ def quantumness():
   
   dimensions = np.arange(12,21)
   batch_size = 1000
+
+  result = TrainingResult()
 
   traces_result = []
   traces_std_result = []
@@ -176,13 +190,19 @@ def quantumness():
       batch_size=batch_size
     )
     s_y = cnot.predict(x=s_real)
+    analysis(result, s_y, dim)
+
     s_m = [np.reshape(ys, (2*dim, 2*dim)) for ys in s_y]
     s_m_pred = [tfm.real_matrix_to_complex(ys) for ys in s_m]
     eigenvalues, traces, eigenvectors = qm.eigen_decomposition([tfm.real_matrix_to_complex(ys) for ys in s_m])
     anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in s_m_pred]
     anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
     traces_res = np.abs(np.real(1 - traces))
-    traces_result.append(np.mean(traces_res))
+    mean_traces = np.mean(traces_res)
+    traces_result.append(mean_traces)
+    result.mean_traces.append(mean_traces)
+    result.std_traces.append(np.std(traces_res))
+
     traces_std_result.append(np.std(traces_res))
     anti_hermitian_part_norm_result.append(np.mean(anti_hermitian_part_norm))
     anti_hermitian_part_norm_std_result.append(np.std(anti_hermitian_part_norm))
@@ -190,17 +210,18 @@ def quantumness():
   fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
+  axis.legend()
   
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
   axis.plot(dimensions, traces_result, label='mean residual trace', linestyle=linestyle[0])
   axis.plot(dimensions, anti_hermitian_part_norm_result, label='mean anti-herm. norm', linestyle=linestyle[1])
-  axis.legend()
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
   fig.tight_layout()
   fig.savefig('quantumness.pdf')
 
 def compose_circuit():
   epochs = 2000
+
   num_subepochs = 1
   num_samples = 10000
   units = [64,16,64]
@@ -229,7 +250,7 @@ def compose_circuit():
 
   num_layers = 2**np.arange(1,16)
   errors = []
-  dim = 32
+  dim = 4
 
   for layers in num_layers:
     unitary_transform = np.matmul(qm.cnot, np.kron(qm.hadamard, qm.rotate(np.pi/8)))
@@ -239,16 +260,16 @@ def compose_circuit():
     for _ in range(layers):
       x_h_r = hadamard_pi_8th.predict(x=x_cnot)
       x_cnot = cnot.predict(x=x_h_r)
-    msq_err = (1.0/num_samples)*np.sum((x_cnot - y)**2)
+    msq_err = (1.0/num_samples)*np.sum((x_cnot - y)**2)  
     # convert back to complex representation
     y = [np.reshape(ys, (2*dim, 2*dim)) for ys in y]
     y = [tfm.real_matrix_to_complex(ys) for ys in y]
     x_cnot = [np.reshape(xs, (2*dim, 2*dim)) for xs in x_cnot]
     x_cnot = [tfm.real_matrix_to_complex(xs) for xs in x_cnot]
-    y_0 = qm.partial_trace(y, tensor_dim=[2,2], index=0)
-    x_0 = qm.partial_trace(x_cnot, tensor_dim=[2,2], index=0)
-    y_0_s = qm.stereographic_projection(qm.bloch_vector(y_0))
-    x_0_s = qm.stereographic_projection(qm.bloch_vector(x_0))
+    #y_0 = qm.partial_trace(y, tensor_dim=[2,2], index=0)
+    #x_0 = qm.partial_trace(x_cnot, tensor_dim=[2,2], index=0)
+    #y_0_s = qm.stereographic_projection(qm.bloch_vector(y_0))
+    #x_0_s = qm.stereographic_projection(qm.bloch_vector(x_0))
     # store the results
     errors.append(msq_err)
 
@@ -264,10 +285,7 @@ def plot_compose_circuit():
   axis.set_xlabel('number of layers')
   axis.plot(x,y)
   fig.tight_layout()
-  fig.savefig('compose_circuit.pdf')
-
-
-computation_errors = [1.718235700650654e-14, 2.728917872170883e-14, 3.4225502557892086e-14, 1.2396163982650348e-13, 4.996448279934695e-13, 1.8091896260771886e-12, 6.413142939642376e-12, 2.1435518942870975e-11, 9.826842236203848e-11, 6.277303881633471e-10, 2.175825635845086e-09, 6.7780966942311115e-09, 3.627724788342358e-08]
+  fig.savefig(Path('compose_circuit.pdf'))
 
 def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bottleneck_dim = np.arange(1,9)):
   num_samples = 10000
@@ -296,15 +314,16 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
     loss_results.append(losses)
 
   fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
-  # axis.set_title('Loss versus bottleneck dimension')
+  fig.tight_layout()
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
-  for idx, losses in enumerate(loss_results):
-    axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]))
   axis.legend()
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
-  fig.tight_layout()
+
+  for idx, losses in enumerate(loss_results):
+    axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]))
+ 
   fig.savefig('bottle_neck_sweep_{}.pdf'.format(name))
 
 
@@ -353,9 +372,9 @@ def generate_loss_sweep_plot(
     num_subepochs=num_subepochs
   )
   pickle.dump(results, open('results/sweep_{}_{}_{}.p'.format(batch_size, num_runs, epochs) , 'wb'))
-  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
 
-  fig, axis = plt.subplots(5, 1, sharex=True, figsize=(normal_figure_width,5*0.5*normal_figure_width))
+  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
+  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,5*0.5*normal_figure_width))
   fig.subplots_adjust(hspace=0)
   axis[0].set_yscale('log')
   axis[0].set_ylabel('loss')
@@ -364,30 +383,21 @@ def generate_loss_sweep_plot(
 
   steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
 
-  axis[1].set_ylabel('avg. trace')
+  axis[1].set_ylabel('trace')
   axis[1].set_yscale('log')
 
   for r in results:
-    axis[1].plot(steps, r.mean_traces)
+    axis[1].plot(steps, r.min_traces, label="min")
+    axis[1].plot(steps, r.mean_traces, label="mean")
+    axis[1].plot(steps, r.max_traces, label="max")
 
-  axis[2].set_ylabel('std. trace')
+  axis[2].set_ylabel('norm a.h. part')
   axis[2].set_yscale('log')
 
   for r in results:
-    axis[2].plot(steps, r.std_traces)
-
-  axis[3].set_ylabel('avg. norm')
-  axis[3].set_yscale('log')
-
-  for idx, r in enumerate(results):
-    axis[3].plot(steps, r.mean_anti_hermitian_parts)
-
-  axis[4].set_xlabel('epoch')
-  axis[4].set_ylabel('std. norm')
-  axis[4].set_yscale('log')
-
-  for idx, r in enumerate(results):
-    axis[4].plot(steps, r.std_anti_hermitian_parts) # , linestyle=linestyle[idx])
+    axis[2].plot(steps, r.min_anti_hermitian_parts)
+    axis[2].plot(steps, r.mean_anti_hermitian_parts)
+    axis[2].plot(steps, r.max_anti_hermitian_parts)
 
   fig.tight_layout()
   fig.savefig('sweep_{}.pdf'.format(name))

@@ -81,8 +81,7 @@ def uniform_2d_spherical_within(
     phi_max=2.0*np.pi, 
     theta_min=0.0, 
     theta_max=np.pi):
-  """
-  Generate random uniform samples on a 2d-sphere within the 
+  """Generate random uniform samples on a 2d-sphere within the 
   specified spherical coordinates (phi_min, phi_max) and
   (theta_min, theta_max).
 
@@ -108,6 +107,27 @@ def ginibre_ensemble_sample(n = 2):
     n (int): Dimension of the space of matrices.
   """
   return np.random.randn(n,n) + 1.0j*np.random.randn(n,n)
+
+def uniform_sample(n = 2):
+  """Generate a matrix with real and imaginary parts drawn uniformly
+  from the interval [-1,1].
+
+  Args:
+    n (int): Dimension of the space of matrices.
+  """
+  return (2*np.random.rand(n,n)-1) + 1.0j*(2*np.random.rand(n,n)-1)
+
+def density_matrix_uniform(n = 2):
+  """Generate a random density matrix based on a uniform sample.
+
+  Args:
+    n (int): Dimension of the space of matrices.
+  """
+  s = uniform_sample(n = n)
+  h = np.matmul(s, s.conj().T)
+  h_trace = np.trace(h)
+  return h / h_trace
+
 
 def density_matrix_ginibre_sample(n = 2):
   """Generate random desnsity matrix based on the ginibre ensemble.
