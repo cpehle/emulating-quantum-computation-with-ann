@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import multiprocessing as mp
 
 from pathlib import Path
 
@@ -17,18 +18,40 @@ import matplotlib
 
 normal_figure_width, wide_figure_width = figures.set_plot_parameters()
 
-def generate_data(u=qm.hadamard, n=2, num_samples=10000):
-    """
-    Args:
-      u (quantum gate): quantum gate.
-      n (int): Dimension of the quantum gate.
-      m (int): Number of samples.
-    """
-    x = rnd.density_matrix_ginibre(n=n, m=num_samples)
-    y = np.matmul(np.matmul(u, x), u.conj().T)
-    x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,(2*n)**2))
-    y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,(2*n)**2))
-    return x_real, y_real
+def generate_unnormalized_data(u=qm.hadamard, n=2, num_samples=10000, use_uniform_samples=False):
+  """
+  Args:
+    u (quantum gate): quantum gate.
+    n (int): Dimension of the quantum gate.
+    num_samples (int): Number of samples.
+    use_uniform_samples (bool): Whether to use uniform or ginibre samples.
+  """
+  if use_uniform_samples:
+    x,x_density = rnd.uniform_density_samples(dim=n, num_samples=num_samples)
+  else:
+    x,x_density = rnd.ginibre_density_samples(dim=n, num_samples=num_samples)
+  y = np.matmul(np.matmul(u, x_density), u.conj().T)
+  x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x]), (num_samples,(2*n)**2))
+  y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,(2*n)**2))
+  return x_real, y_real
+
+def generate_data(u=qm.hadamard, n=2, num_samples=10000, use_uniform_samples=False):
+  """
+  Args:
+    u (quantum gate): quantum gate.
+    n (int): Dimension of the quantum gate.
+    num_samples (int): Number of samples.
+    use_uniform_samples (bool): Whether to use uniform or ginibre samples.
+  """
+  if use_uniform_samples:
+    x,x_density = rnd.uniform_density_samples(dim=n, num_samples=num_samples)
+  else:
+    x,x_density = rnd.ginibre_density_samples(dim=n, num_samples=num_samples)
+
+  y = np.matmul(np.matmul(u, x_density), u.conj().T)
+  x_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in x_density]), (num_samples,(2*n)**2))
+  y_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in y]), (num_samples,(2*n)**2))
+  return x_real, y_real
 
 def build_non_linear_model(units, activation='linear', optimizer='adagrad'):
   """
@@ -98,6 +121,8 @@ def train_model(
   batch_size=1000,
   model=build_non_linear_model(units=[16,32,32,16]),
   plot_losses=True,
+  use_unnormalized_data=False,
+  use_uniform_samples=False,
   num_subepochs=1000,
   data=None,
   verbose=1,
@@ -118,7 +143,20 @@ def train_model(
     num_subepochs (int): Number of training steps to divide it into.
   """
   if data is None:
-    x,y = generate_data(unitary_transform, n=np.shape(unitary_transform)[0], num_samples=num_samples)
+    if use_unnormalized_data:
+      x,y = generate_unnormalized_data(
+        unitary_transform, 
+        n=np.shape(unitary_transform)[0], 
+        num_samples=num_samples, 
+        use_uniform_samples=use_uniform_samples
+      )
+    else:
+      x,y = generate_data(
+        unitary_transform, 
+        n=np.shape(unitary_transform)[0], 
+        num_samples=num_samples, 
+        use_uniform_samples=use_uniform_samples
+      )
   else:
     x,y = data
   dim = np.shape(unitary_transform)[0]
@@ -128,8 +166,6 @@ def train_model(
   sub_epochs = int(epochs/num_subepochs)
 
   for _ in range(num_subepochs):
-    y_pred = model.predict(x=x)
-    analysis(result, y_pred, dim)
     history = model.fit(
       x=x,
       y=y,
@@ -139,6 +175,8 @@ def train_model(
       callbacks=callbacks,
       verbose=verbose
     )
+    y_pred = model.predict(x=x)
+    analysis(result, y_pred, dim)
 
     result.training_losses += history.history['loss']
     result.validation_losses += history.history['val_loss']
@@ -156,7 +194,7 @@ def train_model(
 
   return model, result
 
-def quantumness():
+def quantumness(use_uniform_samples = False):
   epochs = 3000
   num_subepochs = 1
   num_samples = 10000
@@ -174,8 +212,12 @@ def quantumness():
   # test data is held constant over the different bottleneck dimensions
   num_test_samples = 10000
   dim = 4
-  s = np.stack([rnd.ginibre_ensemble_sample(n = 4) for _ in range(num_test_samples)])
-  s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
+  if use_uniform_samples:
+    s = np.stack([rnd.density_matrix_uniform(n = 4) for _ in range(num_test_samples)])
+    s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
+  else:
+    s = np.stack([rnd.ginibre_ensemble_sample(n = 4) for _ in range(num_test_samples)])
+    s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
 
   for d in dimensions:
     units = [64,d,64]
@@ -210,18 +252,19 @@ def quantumness():
   fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
-  axis.legend()
-  
+  axis.set_ylabel('loss')  
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
   axis.plot(dimensions, traces_result, label='mean residual trace', linestyle=linestyle[0])
   axis.plot(dimensions, anti_hermitian_part_norm_result, label='mean anti-herm. norm', linestyle=linestyle[1])
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
+  axis.legend()
   fig.tight_layout()
-  fig.savefig('quantumness.pdf')
+  label = 'uniform' if use_uniform_samples else 'ginibre'
+  fig.savefig('quantumness_{}.pdf'.format(label))
+  return
 
 def compose_circuit():
   epochs = 2000
-
   num_subepochs = 1
   num_samples = 10000
   units = [64,16,64]
@@ -287,7 +330,14 @@ def plot_compose_circuit():
   fig.tight_layout()
   fig.savefig(Path('compose_circuit.pdf'))
 
-def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bottleneck_dim = np.arange(1,9)):
+def generate_bottleneck_sweep(
+    name='hadamard', 
+    io_dim=16, 
+    gate=qm.hadamard, 
+    bottleneck_dim=np.arange(1,9), 
+    use_unnormalized_data=False,
+    use_uniform_samples=False,
+    ):
   num_samples = 10000
   batch_size = 1000
   epochs = 1000
@@ -299,6 +349,7 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
   for epochs in epoch_choices:
     losses = []
     for dim in bottleneck_dim:
+      print("training bottleneck_dim {} epochs {}".format(dim, epochs))
       _, result = train_model(
             unitary_transform=gate, 
             epochs=epochs,
@@ -308,6 +359,8 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
             num_subepochs=num_subepochs,
             batch_size=batch_size,
             verbose=0,
+            use_unnormalized_data=use_unnormalized_data,
+            use_uniform_samples=use_uniform_samples
       )
       min_loss = np.min(result.training_losses)
       losses.append(min_loss)
@@ -318,24 +371,26 @@ def generate_bottleneck_sweep(name='hadamard', io_dim=16, gate=qm.hadamard, bott
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
-  axis.legend()
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
 
   for idx, losses in enumerate(loss_results):
     axis.plot(bottleneck_dim, losses, label='epochs = {}'.format(epoch_choices[idx]))
  
+  axis.legend()
   fig.savefig('bottle_neck_sweep_{}.pdf'.format(name))
-
 
 def generate_loss_sweep(
     gate = qm.hadamard,
     units = [16,3,16],
-    num_runs=100,
+    num_runs = 100,
     num_samples = 10000,
     batch_size = 1000,
     epochs = 300,
     num_subepochs = 100,
-    activation = 'linear'
+    activation = 'linear',
+    use_unnormalized_data = False,
+    use_uniform_samples = False,
+    verbose = True
   ):
   results = []
   for _ in range(num_runs):
@@ -347,7 +402,10 @@ def generate_loss_sweep(
         plot_losses=False,
         num_samples=num_samples,
         num_subepochs=num_subepochs,
-        batch_size=batch_size
+        batch_size=batch_size,
+        use_unnormalized_data=use_unnormalized_data,
+        use_uniform_samples=use_uniform_samples,
+        verbose=verbose,
       )
     results.append(result)
   return results
@@ -362,6 +420,9 @@ def generate_loss_sweep_plot(
     epochs = 300,
     batch_size = 1000,
     num_subepochs = 100,
+    use_unnormalized_data = False,
+    use_uniform_samples=False,
+    verbose=True,
   ):
   results = generate_loss_sweep(
     gate, 
@@ -369,40 +430,97 @@ def generate_loss_sweep_plot(
     batch_size=batch_size, 
     num_runs=num_runs, 
     epochs=epochs, 
-    num_subepochs=num_subepochs
+    num_subepochs=num_subepochs,
+    use_unnormalized_data=use_unnormalized_data,
+    use_uniform_samples=use_uniform_samples,
+    verbose=verbose
   )
   pickle.dump(results, open('results/sweep_{}_{}_{}.p'.format(batch_size, num_runs, epochs) , 'wb'))
 
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
   fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,5*0.5*normal_figure_width))
-  fig.subplots_adjust(hspace=0)
   axis[0].set_yscale('log')
   axis[0].set_ylabel('loss')
   for r in results:
-    axis[0].plot(r.training_losses)
+    axis[0].plot(r.training_losses, linestyle='solid')
 
   steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
 
   axis[1].set_ylabel('trace')
   axis[1].set_yscale('log')
 
-  for r in results:
-    axis[1].plot(steps, r.min_traces, label="min")
-    axis[1].plot(steps, r.mean_traces, label="mean")
-    axis[1].plot(steps, r.max_traces, label="max")
+  for idx,r in enumerate(results):
+    axis[1].plot(steps, r.mean_traces, label="mean", linestyle='solid')
+    axis[1].plot(steps, r.min_traces, label="min", linestyle='dashed')
+    axis[1].plot(steps, r.max_traces, label="max", linestyle='dotted')
+    if idx is 0:
+      axis[1].legend()
 
-  axis[2].set_ylabel('norm a.h. part')
+  axis[2].set_ylabel('norm anti-hermitian part')
   axis[2].set_yscale('log')
 
-  for r in results:
-    axis[2].plot(steps, r.min_anti_hermitian_parts)
-    axis[2].plot(steps, r.mean_anti_hermitian_parts)
-    axis[2].plot(steps, r.max_anti_hermitian_parts)
+  for idx, r in enumerate(results):
+    axis[2].plot(steps, r.mean_anti_hermitian_parts, label="mean", linestyle='solid')
+    axis[2].plot(steps, r.min_anti_hermitian_parts, label="min", linestyle='dashed')
+    axis[2].plot(steps, r.max_anti_hermitian_parts, label="max", linestyle='dotted')
+    if idx is 0:
+      axis[2].legend()
 
+  axis[2].set_xlabel('epoch')
+  for ax in axis:
+    ax.label_outer()
+
+  fig.subplots_adjust(hspace=0)
   fig.tight_layout()
   fig.savefig('sweep_{}.pdf'.format(name))
   return results
 
 def generate_plots():
-  generate_loss_sweep_plot(name='cnot', gate=qm.cnot, units=[64,15,64], epochs=1000, num_subepochs=100, num_runs=1)
-  generate_bottleneck_sweep(name='cnot', io_dim=64, gate=qm.cnot, bottleneck_dim=np.arange(12,20))
+  for use_uniform_samples in [True, False]:
+    label = "uniform" if use_uniform_samples else "ginibre"
+    for dim in [15,16]:
+      print('cnot_{}_{}'.format(dim, label))
+      generate_loss_sweep_plot(
+        name='cnot_{}_{}'.format(dim, label), 
+        gate=qm.cnot, 
+        units=[64,dim,64], 
+        epochs=1000, 
+        num_subepochs=100, 
+        num_runs=1, 
+        use_uniform_samples=use_uniform_samples,
+        verbose=False
+      )
+      print('cnot_unnormalized_{}_{}'.format(dim, label))
+      generate_loss_sweep_plot(
+        name='cnot_unnormalized_{}_{}'.format(dim, label), 
+        gate=qm.cnot, 
+        units=[64,dim,64], 
+        epochs=1000, 
+        num_subepochs=100, 
+        num_runs=1, 
+        use_unnormalized_data=True, 
+        use_uniform_samples=use_uniform_samples,
+        verbose=False
+      )
+    print("bottleneck sweep cnot {}".format(label))
+    generate_bottleneck_sweep(
+      name='cnot_{}'.format(label), 
+      io_dim=64, 
+      gate=qm.cnot, 
+      bottleneck_dim=np.arange(12,20),
+      use_uniform_samples=use_uniform_samples,
+    )
+    print("bottleneck sweep cnot unnormalized {}".format(label))
+    generate_bottleneck_sweep(
+      name='cnot_unnormalized_{}'.format(label), 
+      io_dim=64, 
+      gate=qm.cnot, 
+      bottleneck_dim=np.arange(12,20), 
+      use_unnormalized_data=True,
+      use_uniform_samples=use_uniform_samples,
+    )
+  print("quantumness")
+  quantumness()
+
+if __name__ == '__main__':
+  generate_plots()

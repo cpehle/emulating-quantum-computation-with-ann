@@ -108,14 +108,14 @@ def ginibre_ensemble_sample(n = 2):
   """
   return np.random.randn(n,n) + 1.0j*np.random.randn(n,n)
 
-def uniform_sample(n = 2):
+def uniform_sample(dim = 2):
   """Generate a matrix with real and imaginary parts drawn uniformly
   from the interval [-1,1].
 
   Args:
-    n (int): Dimension of the space of matrices.
+    dim (int): Dimension of the space of matrices.
   """
-  return (2*np.random.rand(n,n)-1) + 1.0j*(2*np.random.rand(n,n)-1)
+  return (2*np.random.rand(dim,dim)-1) + 1.0j*(2*np.random.rand(dim,dim)-1)
 
 def density_matrix_uniform(n = 2):
   """Generate a random density matrix based on a uniform sample.
@@ -123,11 +123,25 @@ def density_matrix_uniform(n = 2):
   Args:
     n (int): Dimension of the space of matrices.
   """
-  s = uniform_sample(n = n)
+  s = uniform_sample(dim = n)
   h = np.matmul(s, s.conj().T)
   h_trace = np.trace(h)
   return h / h_trace
 
+def density_matrix(m):
+  h = np.matmul(m, m.conj().T)
+  h_trace = np.trace(h)
+  return h / h_trace
+
+def uniform_density_samples(dim = 2, num_samples = 10000):
+  unnormalized_matrices = [uniform_sample(dim = dim) for _ in range(num_samples)]
+  density_matrices = [density_matrix(m) for m in unnormalized_matrices]
+  return unnormalized_matrices, density_matrices
+
+def ginibre_density_samples(dim = 2, num_samples = 10000):
+  unnormalized_matrices = [ginibre_ensemble_sample(n = dim) for _ in range(num_samples)]
+  density_matrices = [density_matrix(m) for m in unnormalized_matrices]
+  return unnormalized_matrices, density_matrices
 
 def density_matrix_ginibre_sample(n = 2):
   """Generate random desnsity matrix based on the ginibre ensemble.
