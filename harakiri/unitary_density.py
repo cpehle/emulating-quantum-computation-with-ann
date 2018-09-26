@@ -1,5 +1,6 @@
 import numpy as np
 import pickle
+import os
 import multiprocessing as mp
 
 from pathlib import Path
@@ -78,7 +79,7 @@ def build_non_linear_model(units, activation='linear', optimizer='adagrad'):
   return model
 
 class TrainingResult:
-  def __init__(self):
+  def __init__(self, path=""):
     self.training_losses = []
     self.validation_losses = []
     self.mean_traces = []
@@ -91,6 +92,51 @@ class TrainingResult:
     self.max_anti_hermitian_parts = []
     self.max_traces = []
     self.min_traces = []
+    self.mean_res_traces = []
+    self.min_res_traces = []
+    self.max_res_traces = []
+    if path:
+      self.load(path)
+
+  def save(self, directory):
+    """
+    Saves the training results to a file for later analysis.
+    """
+    np.save("{}/{}.npy".format(directory, 'training_losses'), self.training_losses)
+    np.save("{}/{}.npy".format(directory, 'validation_losses'), self.validation_losses)
+    np.save("{}/{}.npy".format(directory, 'mean_traces'), self.mean_traces)
+    np.save("{}/{}.npy".format(directory, 'std_traces'), self.std_traces)
+    np.save("{}/{}.npy".format(directory, 'mean_anti_hermitian_parts'), self.mean_anti_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'mean_hermitian_parts'), self.mean_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'std_hermitian_parts'), self.std_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'std_anti_hermitian_parts'), self.std_anti_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'min_anti_hermitian_parts'), self.min_anti_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'max_anti_hermitian_parts'), self.max_anti_hermitian_parts)
+    np.save("{}/{}.npy".format(directory, 'max_traces'), self.max_traces)
+    np.save("{}/{}.npy".format(directory, 'min_traces'), self.min_traces)
+    np.save("{}/{}.npy".format(directory, 'mean_res_traces'), self.mean_res_traces)
+    np.save("{}/{}.npy".format(directory, 'min_res_traces'), self.min_res_traces)
+    np.save("{}/{}.npy".format(directory, 'max_res_traces'), self.max_res_traces)
+
+  def load(self, directory):
+    """
+    Loads the training results back from disk.
+    """
+    self.training_losses = np.load("{}/{}.npy".format(directory, 'training_losses'))
+    self.validation_losses = np.load("{}/{}.npy".format(directory, 'validation_losses'))
+    self.mean_traces = np.load("{}/{}.npy".format(directory, 'mean_traces'))
+    self.std_traces = np.load("{}/{}.npy".format(directory, 'std_traces'))
+    self.mean_anti_hermitian_parts = np.load("{}/{}.npy".format(directory, 'mean_anti_hermitian_parts'))
+    self.mean_hermitian_parts = np.load("{}/{}.npy".format(directory, 'mean_hermitian_parts'))
+    self.std_hermitian_parts = np.load("{}/{}.npy".format(directory, 'std_hermitian_parts'))
+    self.std_anti_hermitian_parts = np.load("{}/{}.npy".format(directory, 'std_anti_hermitian_parts'))
+    self.min_anti_hermitian_parts = np.load("{}/{}.npy".format(directory, 'min_anti_hermitian_parts'))
+    self.max_anti_hermitian_parts = np.load("{}/{}.npy".format(directory, 'max_anti_hermitian_parts'))
+    self.max_traces = np.load("{}/{}.npy".format(directory, 'max_traces'))
+    self.min_traces = np.load("{}/{}.npy".format(directory, 'min_traces'))
+    self.mean_res_traces = np.load("{}/{}.npy".format(directory, 'mean_res_traces'))
+    self.min_res_traces = np.load("{}/{}.npy".format(directory, 'min_res_traces'))
+    self.max_res_traces = np.load("{}/{}.npy".format(directory, 'max_res_traces'))
 
 def analysis(result, y_pred, dim):
   """
@@ -102,10 +148,16 @@ def analysis(result, y_pred, dim):
   hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in hermitian_part]
   anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in y_pred]
   anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
+  res_traces = np.abs(np.real(1 - traces))
   result.mean_traces.append(np.mean(traces))
   result.std_traces.append(np.std(traces))
   result.min_traces.append(np.min(traces))
   result.max_traces.append(np.max(traces))
+  # 
+  result.mean_res_traces.append(np.mean(res_traces))
+  result.min_res_traces.append(np.min(res_traces))
+  result.max_res_traces.append(np.max(res_traces))
+  #
   result.mean_hermitian_parts.append(np.mean(hermitian_part_norm))
   result.std_hermitian_parts.append(np.std(hermitian_part_norm))
   result.mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
@@ -166,6 +218,8 @@ def train_model(
   sub_epochs = int(epochs/num_subepochs)
 
   for _ in range(num_subepochs):
+    y_pred = model.predict(x=x)
+    analysis(result, y_pred, dim)
     history = model.fit(
       x=x,
       y=y,
@@ -175,8 +229,6 @@ def train_model(
       callbacks=callbacks,
       verbose=verbose
     )
-    y_pred = model.predict(x=x)
-    analysis(result, y_pred, dim)
 
     result.training_losses += history.history['loss']
     result.validation_losses += history.history['val_loss']
@@ -213,7 +265,7 @@ def quantumness(use_uniform_samples = False):
   num_test_samples = 10000
   dim = 4
   if use_uniform_samples:
-    s = np.stack([rnd.density_matrix_uniform(n = 4) for _ in range(num_test_samples)])
+    s = np.stack([rnd.uniform_sample(dim = 4) for _ in range(num_test_samples)])
     s_real = np.reshape(np.stack([tfm.complex_matrix_to_real(m) for m in s]), (num_test_samples,8*8))
   else:
     s = np.stack([rnd.ginibre_ensemble_sample(n = 4) for _ in range(num_test_samples)])
@@ -229,7 +281,8 @@ def quantumness(use_uniform_samples = False):
       plot_losses=False,
       num_samples=num_samples,
       num_subepochs=num_subepochs,
-      batch_size=batch_size
+      batch_size=batch_size,
+      use_uniform_samples=use_uniform_samples
     )
     s_y = cnot.predict(x=s_real)
     analysis(result, s_y, dim)
@@ -252,13 +305,13 @@ def quantumness(use_uniform_samples = False):
   fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
-  axis.set_ylabel('loss')  
+  axis.set_ylabel('')  
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
-  axis.plot(dimensions, traces_result, label='mean residual trace', linestyle=linestyle[0])
-  axis.plot(dimensions, anti_hermitian_part_norm_result, label='mean anti-herm. norm', linestyle=linestyle[1])
+  axis.plot(dimensions, traces_result, label='residual trace', linestyle=linestyle[0])
+  axis.plot(dimensions, anti_hermitian_part_norm_result, label='anti-herm. norm', linestyle=linestyle[1])
   axis.xaxis.set_major_locator(matplotlib.ticker.MaxNLocator(integer=True))
   axis.legend()
-  fig.tight_layout()
+  # fig.tight_layout()
   label = 'uniform' if use_uniform_samples else 'ginibre'
   fig.savefig('quantumness_{}.pdf'.format(label))
   return
@@ -327,7 +380,7 @@ def plot_compose_circuit():
   axis.set_ylabel('error')
   axis.set_xlabel('number of layers')
   axis.plot(x,y)
-  fig.tight_layout()
+  # fig.tight_layout()
   fig.savefig(Path('compose_circuit.pdf'))
 
 def generate_bottleneck_sweep(
@@ -367,7 +420,7 @@ def generate_bottleneck_sweep(
     loss_results.append(losses)
 
   fig, axis = plt.subplots(1, 1, figsize=(normal_figure_width, normal_figure_width))
-  fig.tight_layout()
+  # fig.tight_layout()
   axis.set_yscale('log')
   axis.set_xlabel('bottleneck dimension')
   axis.set_ylabel('loss')
@@ -435,12 +488,26 @@ def generate_loss_sweep_plot(
     use_uniform_samples=use_uniform_samples,
     verbose=verbose
   )
-  pickle.dump(results, open('results/sweep_{}_{}_{}.p'.format(batch_size, num_runs, epochs) , 'wb'))
+  for idx, result in enumerate(results):
+    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, idx)
+    os.makedirs(path, exist_ok=True)
+    result.save(path)
+
+  # Plotting code from here on
+  results = []
+  for run in range(num_runs):
+    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, run)
+    results.append(TrainingResult(path=path))
 
   linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
-  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,5*0.5*normal_figure_width))
+  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,3*normal_figure_width))
+    # gridspec_kw = {'wspace':0, 'hspace':0},
+
+  # fig.subplots_adjust(hspace=0)
+
   axis[0].set_yscale('log')
   axis[0].set_ylabel('loss')
+  axis[0].set_aspect('auto')
   for r in results:
     axis[0].plot(r.training_losses, linestyle='solid')
 
@@ -448,6 +515,7 @@ def generate_loss_sweep_plot(
 
   axis[1].set_ylabel('trace')
   axis[1].set_yscale('log')
+  axis[1].set_ylim(0.6,5)
 
   for idx,r in enumerate(results):
     axis[1].plot(steps, r.mean_traces, label="mean", linestyle='solid')
@@ -470,38 +538,97 @@ def generate_loss_sweep_plot(
   for ax in axis:
     ax.label_outer()
 
-  fig.subplots_adjust(hspace=0)
-  fig.tight_layout()
   fig.savefig('sweep_{}.pdf'.format(name))
   return results
+
+def plot_sweep_results(
+  name = "",
+  epochs = 300,
+  batch_size = 1000,
+  num_subepochs = 100,
+  num_runs = 2
+  ):
+
+  plot_name = 'sweep_{}_{}_{}_{}'.format(name, batch_size, num_runs, epochs)
+
+  results = []
+  for run in range(num_runs):
+    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, run)
+    results.append(TrainingResult(path=path))
+
+  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
+  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,3*normal_figure_width))
+  # gridspec_kw = {'wspace':0, 'hspace':0},
+
+  # fig.subplots_adjust(hspace=0)
+  axis[0].set_yscale('log')
+  axis[0].set_ylabel('loss')
+  axis[0].set_aspect('auto')
+  for r in results:
+    axis[0].plot(r.training_losses, linestyle='solid')
+
+  steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
+
+  axis[1].set_ylabel('trace')
+  axis[1].set_yscale('log')
+  axis[1].set_ylim(0.6,5)
+
+  for idx,r in enumerate(results):
+    axis[1].plot(steps, r.mean_traces, label="mean", linestyle='solid')
+    axis[1].plot(steps, r.min_traces, label="min", linestyle='dashed')
+    axis[1].plot(steps, r.max_traces, label="max", linestyle='dotted')
+    if idx is 0:
+      axis[1].legend()
+
+  axis[2].set_ylabel('norm anti-hermitian part')
+  axis[2].set_yscale('log')
+
+  for idx, r in enumerate(results):
+    axis[2].plot(steps, r.mean_anti_hermitian_parts, label="mean", linestyle='solid')
+    axis[2].plot(steps, r.min_anti_hermitian_parts, label="min", linestyle='dashed')
+    axis[2].plot(steps, r.max_anti_hermitian_parts, label="max", linestyle='dotted')
+    if idx is 0:
+      axis[2].legend()
+
+  axis[2].set_xlabel('epoch')
+  for ax in axis:
+    ax.label_outer()
+
+  fig.savefig('{}.pdf'.format(plot_name))
 
 def generate_plots():
   for use_uniform_samples in [True, False]:
     label = "uniform" if use_uniform_samples else "ginibre"
     for dim in [15,16]:
       print('cnot_{}_{}'.format(dim, label))
+      if dim == 15:
+        epochs = 3000
+        num_subepochs = 300
+      if dim == 16:
+        epochs = 1200
+        num_subepochs = 100
       generate_loss_sweep_plot(
         name='cnot_{}_{}'.format(dim, label), 
         gate=qm.cnot, 
         units=[64,dim,64], 
-        epochs=1000, 
-        num_subepochs=100, 
+        epochs=epochs, 
+        num_subepochs=num_subepochs,
         num_runs=1, 
         use_uniform_samples=use_uniform_samples,
         verbose=False
       )
-      print('cnot_unnormalized_{}_{}'.format(dim, label))
-      generate_loss_sweep_plot(
-        name='cnot_unnormalized_{}_{}'.format(dim, label), 
-        gate=qm.cnot, 
-        units=[64,dim,64], 
-        epochs=1000, 
-        num_subepochs=100, 
-        num_runs=1, 
-        use_unnormalized_data=True, 
-        use_uniform_samples=use_uniform_samples,
-        verbose=False
-      )
+      # print('cnot_unnormalized_{}_{}'.format(dim, label))
+      # generate_loss_sweep_plot(
+      #   name='cnot_unnormalized_{}_{}'.format(dim, label), 
+      #   gate=qm.cnot, 
+      #   units=[64,dim,64], 
+      #   epochs=1000, 
+      #   num_subepochs=100, 
+      #   num_runs=1, 
+      #   use_unnormalized_data=True, 
+      #   use_uniform_samples=use_uniform_samples,
+      #   verbose=False
+      # )
     print("bottleneck sweep cnot {}".format(label))
     generate_bottleneck_sweep(
       name='cnot_{}'.format(label), 
@@ -510,17 +637,18 @@ def generate_plots():
       bottleneck_dim=np.arange(12,20),
       use_uniform_samples=use_uniform_samples,
     )
-    print("bottleneck sweep cnot unnormalized {}".format(label))
-    generate_bottleneck_sweep(
-      name='cnot_unnormalized_{}'.format(label), 
-      io_dim=64, 
-      gate=qm.cnot, 
-      bottleneck_dim=np.arange(12,20), 
-      use_unnormalized_data=True,
-      use_uniform_samples=use_uniform_samples,
-    )
+    # print("bottleneck sweep cnot unnormalized {}".format(label))
+    # generate_bottleneck_sweep(
+    #   name='cnot_unnormalized_{}'.format(label), 
+    #   io_dim=64, 
+    #   gate=qm.cnot, 
+    #   bottleneck_dim=np.arange(12,20), 
+    #   use_unnormalized_data=True,
+    #   use_uniform_samples=use_uniform_samples,
+    # )
   print("quantumness")
   quantumness()
+  quantumness(use_uniform_samples=True)
 
 if __name__ == '__main__':
   generate_plots()
