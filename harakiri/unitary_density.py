@@ -654,9 +654,6 @@ def learn_unitarity(units = [128]):
   history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, verbose=False)
   return history.history['loss']
 
-def f(x = 2, y = 3):
-  return x*y
-
 def sweep_learn_unitarity(units = [[64],[128],[256],[512],[64,128],[128,128],[256,256],[512,512]]):
   pool = mp.Pool(10)  
   result = pool.map(learn_unitarity, units)
