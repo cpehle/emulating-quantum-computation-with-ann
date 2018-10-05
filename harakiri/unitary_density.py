@@ -12,6 +12,7 @@ from . import figures
 
 import keras
 from keras.layers.core import Dense, Activation, Dropout
+from keras.layers import LeakyReLU, BatchNormalization, ReLU
 from keras.models import Sequential
 
 import matplotlib.pyplot as plt
@@ -149,15 +150,16 @@ def analysis(result, y_pred, dim):
   anti_hermitian_part = [qm.anti_hermitian_part(ys) for ys in y_pred]
   anti_hermitian_part_norm = [np.real(np.trace(np.matmul(ys.conj().T, ys))) for ys in anti_hermitian_part]
   res_traces = np.abs(np.real(1 - traces))
+  # compute statistics on traces
   result.mean_traces.append(np.mean(traces))
   result.std_traces.append(np.std(traces))
   result.min_traces.append(np.min(traces))
   result.max_traces.append(np.max(traces))
-  # 
+  # compute statistics on residual traces
   result.mean_res_traces.append(np.mean(res_traces))
   result.min_res_traces.append(np.min(res_traces))
   result.max_res_traces.append(np.max(res_traces))
-  #
+  # compute statistics on hermitian / anti-hermitian part
   result.mean_hermitian_parts.append(np.mean(hermitian_part_norm))
   result.std_hermitian_parts.append(np.std(hermitian_part_norm))
   result.mean_anti_hermitian_parts.append(np.mean(anti_hermitian_part_norm))
@@ -167,12 +169,10 @@ def analysis(result, y_pred, dim):
 
 def train_model(
   unitary_transform = qm.hadamard, 
-  name='',
   epochs=3000, 
   num_samples=10000,
   batch_size=1000,
   model=build_non_linear_model(units=[16,32,32,16]),
-  plot_losses=True,
   use_unnormalized_data=False,
   use_uniform_samples=False,
   num_subepochs=1000,
@@ -186,12 +186,10 @@ def train_model(
 
   Args:
     unitary_transform: Unitary transformation to be fit.
-    name: Name of the model.
     epochs: Number of epochs to be trained.
     num_samples: Number of training samples to be generated.
     batch_size: Batch size to be used.
     model: Model to be trained
-    plot_losses (bool): Create a plot of the models loss.
     num_subepochs (int): Number of training steps to divide it into.
   """
   if data is None:
@@ -233,17 +231,6 @@ def train_model(
     result.training_losses += history.history['loss']
     result.validation_losses += history.history['val_loss']
 
-  if plot_losses:
-    plt.figure()
-    plt.plot(result.training_losses, label='training loss')
-    plt.yscale('log')
-    plt.xlabel('steps')
-    plt.ylabel('loss')
-    plt.title('{}'.format(name))
-    plt.legend()
-    plt.savefig('figures/{}.png'.format(name))
-    plt.show()
-
   return model, result
 
 def quantumness(use_uniform_samples = False):
@@ -275,10 +262,8 @@ def quantumness(use_uniform_samples = False):
     units = [64,d,64]
     cnot, _ = train_model(
       unitary_transform=qm.cnot,
-      name='cnot',
       epochs=epochs,
       model=build_non_linear_model(units=units, activation='linear'),
-      plot_losses=False,
       num_samples=num_samples,
       num_subepochs=num_subepochs,
       batch_size=batch_size,
@@ -325,20 +310,16 @@ def compose_circuit():
 
   hadamard_pi_8th, _ = train_model(
     unitary_transform=np.kron(qm.hadamard, qm.rotate(np.pi/8)),
-    name='hadamard_rotate_pi_8th',
     epochs=epochs,
     model=build_non_linear_model(units=units, activation='linear'),
-    plot_losses=False,
     num_samples=num_samples,
     num_subepochs=num_subepochs,
     batch_size=batch_size
   )
   cnot, _ = train_model(
     unitary_transform=qm.cnot,
-    name='cnot',
     epochs=epochs,
     model=build_non_linear_model(units=units, activation='linear'),
-    plot_losses=False,
     num_samples=num_samples,
     num_subepochs=num_subepochs,
     batch_size=batch_size
@@ -362,10 +343,13 @@ def compose_circuit():
     y = [tfm.real_matrix_to_complex(ys) for ys in y]
     x_cnot = [np.reshape(xs, (2*dim, 2*dim)) for xs in x_cnot]
     x_cnot = [tfm.real_matrix_to_complex(xs) for xs in x_cnot]
+
+
     #y_0 = qm.partial_trace(y, tensor_dim=[2,2], index=0)
     #x_0 = qm.partial_trace(x_cnot, tensor_dim=[2,2], index=0)
     #y_0_s = qm.stereographic_projection(qm.bloch_vector(y_0))
     #x_0_s = qm.stereographic_projection(qm.bloch_vector(x_0))
+    
     # store the results
     errors.append(msq_err)
 
@@ -407,7 +391,6 @@ def generate_bottleneck_sweep(
             unitary_transform=gate, 
             epochs=epochs,
             model=build_non_linear_model(units=[io_dim,dim,io_dim], activation=activation),
-            plot_losses=False,
             num_samples=num_samples,
             num_subepochs=num_subepochs,
             batch_size=batch_size,
@@ -449,10 +432,8 @@ def generate_loss_sweep(
   for _ in range(num_runs):
     _, result = train_model(
         unitary_transform=gate, 
-        name='density matrix - hadamard gate',
         epochs=epochs,
         model=build_non_linear_model(units=units, activation=activation),
-        plot_losses=False,
         num_samples=num_samples,
         num_subepochs=num_subepochs,
         batch_size=batch_size,
@@ -465,20 +446,21 @@ def generate_loss_sweep(
 
 def generate_loss_sweep_plot(
     name='density matrix - hadamard gate', 
-    title='', 
-    gate = qm.hadamard,
-    units = [16,3,16], 
-    num_runs = 2,
-    num_samples = 10000,
-    epochs = 300,
-    batch_size = 1000,
-    num_subepochs = 100,
-    use_unnormalized_data = False,
+    gate=qm.hadamard,
+    activation='linear',
+    units=[16,3,16], 
+    num_runs=2,
+    num_samples=10000,
+    epochs=300,
+    batch_size=1000,
+    num_subepochs=100,
+    use_unnormalized_data=False,
     use_uniform_samples=False,
     verbose=True,
   ):
   results = generate_loss_sweep(
     gate, 
+    activation=activation,
     units=units, 
     batch_size=batch_size, 
     num_runs=num_runs, 
@@ -488,58 +470,12 @@ def generate_loss_sweep_plot(
     use_uniform_samples=use_uniform_samples,
     verbose=verbose
   )
-  for idx, result in enumerate(results):
-    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, idx)
+  for run, result in enumerate(results):
+    path = 'results/{}/run_{}/sweep_{}_{}_{}'.format(name, run, batch_size, epochs, num_subepochs)
     os.makedirs(path, exist_ok=True)
     result.save(path)
 
-  # Plotting code from here on
-  results = []
-  for run in range(num_runs):
-    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, run)
-    results.append(TrainingResult(path=path))
-
-  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
-  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,3*normal_figure_width))
-    # gridspec_kw = {'wspace':0, 'hspace':0},
-
-  # fig.subplots_adjust(hspace=0)
-
-  axis[0].set_yscale('log')
-  axis[0].set_ylabel('loss')
-  axis[0].set_aspect('auto')
-  for r in results:
-    axis[0].plot(r.training_losses, linestyle='solid')
-
-  steps = int(epochs/num_subepochs)*np.arange(0,num_subepochs)
-
-  axis[1].set_ylabel('trace')
-  axis[1].set_yscale('log')
-  axis[1].set_ylim(0.6,5)
-
-  for idx,r in enumerate(results):
-    axis[1].plot(steps, r.mean_traces, label="mean", linestyle='solid')
-    axis[1].plot(steps, r.min_traces, label="min", linestyle='dashed')
-    axis[1].plot(steps, r.max_traces, label="max", linestyle='dotted')
-    if idx is 0:
-      axis[1].legend()
-
-  axis[2].set_ylabel('norm anti-hermitian part')
-  axis[2].set_yscale('log')
-
-  for idx, r in enumerate(results):
-    axis[2].plot(steps, r.mean_anti_hermitian_parts, label="mean", linestyle='solid')
-    axis[2].plot(steps, r.min_anti_hermitian_parts, label="min", linestyle='dashed')
-    axis[2].plot(steps, r.max_anti_hermitian_parts, label="max", linestyle='dotted')
-    if idx is 0:
-      axis[2].legend()
-
-  axis[2].set_xlabel('epoch')
-  for ax in axis:
-    ax.label_outer()
-
-  fig.savefig('sweep_{}.pdf'.format(name))
-  return results
+  plot_sweep_results(name=name, epochs=epochs, batch_size=batch_size, num_subepochs=num_subepochs, num_runs=num_runs)
 
 def plot_sweep_results(
   name = "",
@@ -549,18 +485,15 @@ def plot_sweep_results(
   num_runs = 2
   ):
 
-  plot_name = 'sweep_{}_{}_{}_{}'.format(name, batch_size, num_runs, epochs)
+  plot_name = 'sweep_{}_{}_{}_{}'.format(name, batch_size, epochs, num_subepochs)
 
   results = []
   for run in range(num_runs):
-    path = 'results/sweep_{}_{}_{}_{}'.format(batch_size, num_runs, epochs, run)
+    path = 'results/{}/run_{}/sweep_{}_{}_{}'.format(name, run, batch_size, epochs, num_subepochs)
     results.append(TrainingResult(path=path))
 
-  linestyle = ['solid', 'dashed', 'dashdot', 'dotted']
-  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,3*normal_figure_width))
-  # gridspec_kw = {'wspace':0, 'hspace':0},
+  fig, axis = plt.subplots(3, 1, sharex=True, figsize=(normal_figure_width,3*0.5*normal_figure_width))
 
-  # fig.subplots_adjust(hspace=0)
   axis[0].set_yscale('log')
   axis[0].set_ylabel('loss')
   axis[0].set_aspect('auto')
@@ -571,12 +504,11 @@ def plot_sweep_results(
 
   axis[1].set_ylabel('trace')
   axis[1].set_yscale('log')
-  axis[1].set_ylim(0.6,5)
 
   for idx,r in enumerate(results):
-    axis[1].plot(steps, r.mean_traces, label="mean", linestyle='solid')
-    axis[1].plot(steps, r.min_traces, label="min", linestyle='dashed')
-    axis[1].plot(steps, r.max_traces, label="max", linestyle='dotted')
+    axis[1].plot(steps, np.abs(1-r.mean_traces), label="mean", linestyle='solid')
+    axis[1].plot(steps, np.abs(1-r.min_traces), label="min", linestyle='dashed')
+    axis[1].plot(steps, np.abs(1-r.max_traces), label="max", linestyle='dotted')
     if idx is 0:
       axis[1].legend()
 
@@ -652,3 +584,81 @@ def generate_plots():
 
 if __name__ == '__main__':
   generate_plots()
+
+def learn_hermiticity(batch_size=32):
+  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(10000)]
+  x = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m)) for m in data])
+  y = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(np.matmul(m, m.conj().T))) for m in data])
+
+
+  model = Sequential()
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dense(units=64,use_bias=True,activation='linear'))
+  model.compile(
+    loss="mse", 
+    optimizer='adagrad',
+    metrics=[]
+  )
+  model.fit(x=x, y=y, batch_size=batch_size, epochs=1000)
+
+
+def learn_trace(batch_size=32):
+  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(10000)]
+  xx = np.array([tfm.complex_matrix_to_real(np.matmul(m, m.conj().T)) for m in data])
+  x = np.array([np.ndarray.flatten(m) for m in xx])
+  y = np.array([np.trace(m) for m in xx])
+
+  model = Sequential()
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dropout(0.2))
+  model.add(Dense(units=128,use_bias=True,activation='relu'))
+  model.add(Dense(units=1,use_bias=True,activation='linear'))
+  model.compile(
+    loss="mse", 
+    optimizer='adagrad',
+    metrics=[]
+  )
+  model.fit(x=x, y=y, batch_size=batch_size, epochs=1000)
+
+def learn_unitarity(units = [128]):
+  batch_size=32
+  epochs=3000
+  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(10000)]
+  x = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m)) for m in data])
+  y = np.array([np.matmul(m, m.conj().T) for m in data])
+  y = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m / np.trace(m))) for m in y])
+
+  model = Sequential()
+
+  for unit in units:
+    model.add(Dense(units=unit,use_bias=True))
+    model.add(LeakyReLU(alpha=0.1))
+    model.add(Dropout(0.1))
+
+  model.add(Dense(units=128,use_bias=True))
+  model.add(LeakyReLU(alpha=0.1))  
+  # model.add(ReLU())
+
+  model.add(Dense(units=64,use_bias=True))
+  model.compile(
+    loss="mse", 
+    optimizer='adagrad',
+    metrics=[]
+  )
+  history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, verbose=False)
+  return history.history['loss']
+
+def f(x = 2, y = 3):
+  return x*y
+
+def sweep_learn_unitarity(units = [[64],[128],[256],[512],[64,128],[128,128],[256,256],[512,512]]):
+  pool = mp.Pool(10)  
+  result = pool.map(learn_unitarity, units)
+  for r in result:
+    print(np.min(r))
