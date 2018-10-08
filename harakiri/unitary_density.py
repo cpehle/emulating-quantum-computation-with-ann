@@ -607,7 +607,6 @@ def learn_hermiticity(batch_size=32):
   )
   model.fit(x=x, y=y, batch_size=batch_size, epochs=1000)
 
-
 def learn_trace(batch_size=32):
   data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(10000)]
   xx = np.array([tfm.complex_matrix_to_real(np.matmul(m, m.conj().T)) for m in data])
@@ -627,9 +626,10 @@ def learn_trace(batch_size=32):
   model.fit(x=x, y=y, batch_size=batch_size, epochs=1000)
 
 def learn_unitarity(units = [128]):
-  batch_size=32
-  epochs=3000
-  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(10000)]
+  verbose = True
+  batch_size = 32
+  epochs = 1500
+  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(100000)]
   x = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m)) for m in data])
   y = np.array([np.matmul(m, m.conj().T) for m in data])
   y = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m / np.trace(m))) for m in y])
@@ -638,12 +638,7 @@ def learn_unitarity(units = [128]):
 
   for unit in units:
     model.add(Dense(units=unit,use_bias=True))
-    model.add(LeakyReLU(alpha=0.1))
-    model.add(Dropout(0.1))
-
-  model.add(Dense(units=128,use_bias=True))
-  model.add(LeakyReLU(alpha=0.1))  
-  # model.add(ReLU())
+    model.add(ReLU())
 
   model.add(Dense(units=64,use_bias=True))
   model.compile(
@@ -651,10 +646,11 @@ def learn_unitarity(units = [128]):
     optimizer='adagrad',
     metrics=[]
   )
-  history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, verbose=False)
+
+  history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, verbose=verbose)
   return history.history['loss']
 
-def sweep_learn_unitarity(units = [[64],[128],[256],[512],[64,128],[128,128],[256,256],[512,512]]):
+def sweep_learn_unitarity(units = [[64,64,64],[128,128,128],[256,256,256]]):
   pool = mp.Pool(10)  
   result = pool.map(learn_unitarity, units)
   for r in result:
