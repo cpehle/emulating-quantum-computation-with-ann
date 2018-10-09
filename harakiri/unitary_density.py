@@ -625,11 +625,15 @@ def learn_trace(batch_size=32):
   )
   model.fit(x=x, y=y, batch_size=batch_size, epochs=1000)
 
-def learn_unitarity(units = [128]):
+def learn_unitarity(optimizer):
   verbose = True
-  batch_size = 32
-  epochs = 1500
-  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(100000)]
+  units = [64,64*64]
+  batch_sizes = [32] #,64,128,256]
+
+  epochs = 10
+  histories = []
+  data = [rnd.density_matrix_ginibre_sample(n=4) for _ in range(1000000)]
+  # data, x_density = rnd.uniform_density_samples(dim=n, num_samples=num_samples)
   x = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m)) for m in data])
   y = np.array([np.matmul(m, m.conj().T) for m in data])
   y = np.array([np.ndarray.flatten(tfm.complex_matrix_to_real(m / np.trace(m))) for m in y])
@@ -643,15 +647,32 @@ def learn_unitarity(units = [128]):
   model.add(Dense(units=64,use_bias=True))
   model.compile(
     loss="mse", 
-    optimizer='adagrad',
-    metrics=[]
+    optimizer=optimizer
   )
 
-  history = model.fit(x=x, y=y, batch_size=batch_size, epochs=epochs, verbose=verbose)
-  return history.history['loss']
+  model_chkpt = keras.callbacks.ModelCheckpoint('checkpoints/learn_unitarity.ckpt', monitor='val_loss')
+  reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=0.001)
 
-def sweep_learn_unitarity(units = [[64,64,64],[128,128,128],[256,256,256]]):
-  pool = mp.Pool(10)  
-  result = pool.map(learn_unitarity, units)
-  for r in result:
-    print(np.min(r))
+  for batch_size in batch_sizes:
+    history = model.fit(x=x,
+                        y=y,
+                        validation_split=0.01,
+                        batch_size=batch_size,
+                        epochs=epochs,
+                        verbose=verbose,
+                        callbacks=[model_chkpt, reduce_lr]
+    )
+    h = history.history['loss']
+    histories.extend(h)
+  return histories
+
+def sweep_learn_unitarity():
+  optimizers = [
+    keras.optimizers.Adadelta(),
+    keras.optimizers.RMSprop(),
+    keras.optimizers.SGD()
+  ]
+  result = []
+  for optimizer in optimizers:
+    result.append(learn_unitarity(optimizer))
+  return result
