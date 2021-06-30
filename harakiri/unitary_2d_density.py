@@ -70,23 +70,32 @@ def build_leaky_prelu_model(units, optimizer='adam'):
   return model
 
 
-def build_non_linear_model(units, activation='linear', optimizer='adam'):
+def build_non_linear_model(units, input_shape, activation='linear', optimizer='adam'):
   """
   Build a multi-layer non-linear regression model using 
   mean squared error as a loss function.
 
   Args:
     units: List of dimensions of the units to be used.
+    input_shape: Shape of the input to be expected
     activation: Activation function to be used.
     optimizer: Optimizer to be used.
   """
   model = Sequential()
-  for unit in units:
-    model.add(Dense(
-      units=unit,
-      use_bias=True,
-      activation=activation
-    ))
+  for idx, unit in enumerate(units):
+    if idx == 0:
+      model.add(Dense(
+        units=unit,
+        input_shape=input_shape,
+        use_bias=True,
+        activation=activation
+      ))
+    else:
+      model.add(Dense(
+        units=unit,
+        use_bias=True,
+        activation=activation
+      ))
   model.compile(
     loss="mse", 
     optimizer=optimizer,
@@ -112,7 +121,7 @@ def train_model(
     epochs=3000, 
     num_samples=10000,
     batch_size=1000,
-    model=build_non_linear_model(units=[16,32,32,16]),
+    model=build_non_linear_model(units=[16,32,32,16], input_shape=[64]),
     plot_losses=True,
     data=None
   ):

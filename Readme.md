@@ -4,7 +4,11 @@ This repository contains code for reproducing the experiments reported in [fill 
 
 ## Installing all Requirements
 
-Using pip all nescessary requirements except for NEST can be installed using the following command
+Install tensorflow-1.10 on macOS this can be accomplished by running
+```
+pip install https://storage.googleapis.com/tensorflow/mac/cpu/tensorflow-1.10.0-py3-none-any.whl
+```
+All other requirements can be installed by running.
 ```
 pip install -r requirements.txt
 ```

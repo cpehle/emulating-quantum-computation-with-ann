@@ -1,5 +1,4 @@
-keras
-tensorflow
-matplotlib
+matplotlib==3.0.0
 nose
-keras
+keras==2.2.2
+pandas==0.22
